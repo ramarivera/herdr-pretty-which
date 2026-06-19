@@ -1,0 +1,32 @@
+---
+source: tests/render_snapshots.rs
+expression: output
+---
+┌ Herdr Pretty Which — mnemonic training wheels ───────────────────────────────────────────────────┐
+│┌ Session ───────────────────────────────────────────────────────────────────────────────────────┐│
+││Config fixture/config.toml   Theme terminal   37 assigned · 9 unassigned                        ││
+││Search › type to fuzzy-filter   Mode ALL   View LIST   Shown 46 / 46 bindings                   ││
+│└────────────────────────────────────────────────────────────────────────────────────────────────┘│
+│┌ Bindings · List ─────────────────────────────────────────────────────┐┌ Details ───────────────┐│
+││Action             Keys                   Hint                Origin  ││Help                    ││
+││Help               prefix+?               Open Herdr's canoni default ││                        ││
+││Settings           prefix+s               Open in-app setting default ││Action  help            ││
+││Detach             prefix+q               Leave Herdr; panes  default ││Keys    prefix+?        ││
+││Reload config      prefix+shift+r         Apply config change default ││Default prefix+?        ││
+││Open notification  prefix+o               Jump to what needs  default ││                        ││
+││Workspace picker   prefix+w               Choose a workspace  default ││Open Herdr's canonical  ││
+││Goto               prefix+g               Fuzzy jump across w default ││key map.                ││
+││New workspace      prefix+shift+n         Create a fresh work default │└────────────────────────┘│
+││New worktree       prefix+shift+g         Create a Git worktr default │┌ Categories ────────────┐│
+││Open worktree      —                      Open an existing wo unset   ││Core        5           ││
+││Remove worktree    —                      Remove a worktree a unset   ││Workspaces 13           ││
+││Rename workspace   prefix+shift+w         Name the current wo default ││Tabs        6           ││
+││Close workspace    prefix+shift+d         Close the whole wor default ││Panes      19           ││
+││Previous workspace —                      Direct previous wor unset   ││Agents      3           ││
+│└──────────────────────────────────────────────────────────────────────┘└────────────────────────┘│
+│┌ Muscle memory ─────────────────────────────────────────────────────────────────────────────────┐│
+││↑/↓ move   type filter   backspace edit   tab/shift-tab mode   ctrl+t view   ←/→ tree   esc/q cl││
+││Tip: learn Herdr's native map first; direct chords are optional seasoning, not the main course. ││
+││                                                                                                ││
+│└────────────────────────────────────────────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘

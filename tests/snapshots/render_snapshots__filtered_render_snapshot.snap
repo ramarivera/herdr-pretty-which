@@ -1,0 +1,32 @@
+---
+source: tests/render_snapshots.rs
+expression: output
+---
+┌ Herdr Pretty Which — mnemonic training wheels ───────────────────────────────────────────────────┐
+│┌ Session ───────────────────────────────────────────────────────────────────────────────────────┐│
+││Config fixture/config.toml   Theme terminal   37 assigned · 9 unassigned                        ││
+││Search › split   Mode ALL   View LIST   Shown 5 / 46 bindings                                   ││
+│└────────────────────────────────────────────────────────────────────────────────────────────────┘│
+│┌ Bindings · List ─────────────────────────────────────────────────────┐┌ Details ───────────────┐│
+││Action             Keys                   Hint                Origin  ││Split horizontal        ││
+││Split horizontal   prefix+minus           Split top/bottom. · default ││                        ││
+││Split vertical     prefix+v               Split side by side. default ││Action  split_horizontal││
+││Previous pane      prefix+shift+tab       Cycle backward thro default ││Keys    prefix+minus    ││
+││Navigate workspace up                     Move up while Herdr default ││Default prefix+minus    ││
+││Navigate workspace down                   Move down while Her default ││                        ││
+││                                                                      ││Split top/bottom.       ││
+││                                                                      ││                        ││
+││                                                                      │└────────────────────────┘│
+││                                                                      │┌ Categories ────────────┐│
+││                                                                      ││Core        5           ││
+││                                                                      ││Workspaces 13           ││
+││                                                                      ││Tabs        6           ││
+││                                                                      ││Panes      19           ││
+││                                                                      ││Agents      3           ││
+│└──────────────────────────────────────────────────────────────────────┘└────────────────────────┘│
+│┌ Muscle memory ─────────────────────────────────────────────────────────────────────────────────┐│
+││↑/↓ move   type filter   backspace edit   tab/shift-tab mode   ctrl+t view   ←/→ tree   esc/q cl││
+││Tip: learn Herdr's native map first; direct chords are optional seasoning, not the main course. ││
+││                                                                                                ││
+│└────────────────────────────────────────────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
