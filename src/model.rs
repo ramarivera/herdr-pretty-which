@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Category {
@@ -9,16 +9,21 @@ pub enum Category {
     Panes,
     Agents,
     Custom,
+    /// Actions auto-discovered from `herdr --default-config` that are not yet
+    /// modeled in the static [`SPECS`] table. Surfaced so new Herdr actions are
+    /// never silently hidden; see `crate::discover`.
+    Discovered,
 }
 
 impl Category {
-    pub const ALL: [Category; 6] = [
+    pub const ALL: [Category; 7] = [
         Category::Core,
         Category::Workspaces,
         Category::Tabs,
         Category::Panes,
         Category::Agents,
         Category::Custom,
+        Category::Discovered,
     ];
 
     pub const fn title(self) -> &'static str {
@@ -29,6 +34,7 @@ impl Category {
             Category::Panes => "Panes",
             Category::Agents => "Agents",
             Category::Custom => "Custom",
+            Category::Discovered => "Discovered",
         }
     }
 }
@@ -473,6 +479,24 @@ const SPECS: &[BindingSpec] = &[
 ];
 
 pub fn effective_bindings(keys: &KeysSection) -> Vec<Binding> {
+    effective_bindings_with_discovery(keys, None)
+}
+
+/// Return the set of action names covered by the static [`SPECS`] table. Used to
+/// detect actions discovered from `herdr --default-config` that Pretty Which
+/// does not yet model, so they can be surfaced instead of silently dropped.
+pub fn modeled_actions() -> BTreeSet<&'static str> {
+    SPECS.iter().map(|spec| spec.action).collect()
+}
+
+/// Build effective bindings, optionally merging actions auto-discovered from
+/// `herdr --default-config`. Discovered actions not present in the static
+/// [`SPECS`] table are surfaced under [`Category::Discovered`] so new Herdr
+/// actions are visible instead of silently dropped. See `crate::discover`.
+pub fn effective_bindings_with_discovery(
+    keys: &KeysSection,
+    discovered: Option<&BTreeMap<String, Vec<String>>>,
+) -> Vec<Binding> {
     let mut out = Vec::new();
     for spec in SPECS {
         let configured = configured_value(keys, spec.action);
@@ -536,7 +560,58 @@ pub fn effective_bindings(keys: &KeysSection) -> Vec<Binding> {
         });
     }
 
+    if let Some(discovered) = discovered {
+        let modeled: BTreeSet<&str> = SPECS.iter().map(|spec| spec.action).collect();
+        for (action, default_keys) in discovered {
+            if modeled.contains(action.as_str()) {
+                continue;
+            }
+            let configured = configured_value(keys, action);
+            let binding_keys = configured.clone().unwrap_or_else(|| default_keys.clone());
+            let status = if binding_keys.iter().all(|key| key.trim().is_empty()) {
+                BindingStatus::Disabled
+            } else {
+                BindingStatus::Active
+            };
+            let source = if configured.is_some() {
+                BindingSource::Custom
+            } else {
+                BindingSource::Default
+            };
+            out.push(Binding {
+                action: action.clone(),
+                label: humanize_action(action),
+                keys: binding_keys
+                    .into_iter()
+                    .filter(|key| !key.trim().is_empty())
+                    .collect(),
+                default_keys: default_keys.clone(),
+                category: Category::Discovered,
+                tree_path: vec!["Discovered".to_string(), "Unmodeled".to_string()],
+                source,
+                status,
+                hint: "Auto-discovered from `herdr --default-config`; not yet modeled in Pretty Which specs.".to_string(),
+            });
+        }
+    }
+
     out
+}
+
+/// Turn a snake_case action name into a human-friendly label, e.g.
+/// `open_navigator` -> "Open Navigator".
+fn humanize_action(action: &str) -> String {
+    action
+        .split('_')
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub fn category_counts(bindings: &[Binding]) -> BTreeMap<Category, usize> {
@@ -715,5 +790,57 @@ mod tests {
                 .any(|binding| binding.category == Category::Custom
                     && binding.label == "Pretty Which")
         );
+    }
+
+    #[test]
+    fn discovery_surfaces_unmodeled_actions_without_duplicating_modeled_ones() {
+        // Simulate a future Herdr release adding a new action that Pretty
+        // Which's static SPECS table does not yet know about.
+        let mut discovered = BTreeMap::new();
+        discovered.insert(
+            "future_action".to_string(),
+            vec!["prefix+9".to_string()],
+        );
+        // A modeled action must NOT be duplicated as Discovered.
+        discovered.insert("next_tab".to_string(), vec!["prefix+n".to_string()]);
+
+        let bindings = effective_bindings_with_discovery(
+            &KeysSection::default(),
+            Some(&discovered),
+        );
+
+        let future = bindings
+            .iter()
+            .find(|binding| binding.action == "future_action")
+            .expect("unmodeled discovered action is surfaced");
+        assert_eq!(future.category, Category::Discovered);
+        assert_eq!(future.keys, vec!["prefix+9"]);
+        assert_eq!(future.source, BindingSource::Default);
+        assert_eq!(future.label, "Future Action");
+        assert_eq!(future.tree_path, vec!["Discovered", "Unmodeled"]);
+
+        // Modeled actions stay in their native category and are not duplicated
+        // into Discovered.
+        let next_tab_occurrences = bindings
+            .iter()
+            .filter(|binding| binding.action == "next_tab")
+            .count();
+        assert_eq!(next_tab_occurrences, 1);
+        assert_eq!(
+            bindings
+                .iter()
+                .find(|binding| binding.action == "next_tab")
+                .unwrap()
+                .category,
+            Category::Tabs
+        );
+    }
+
+    #[test]
+    fn modeled_actions_covers_all_static_specs() {
+        let modeled = modeled_actions();
+        assert!(modeled.contains("next_tab"));
+        assert!(modeled.contains("split_vertical"));
+        assert_eq!(modeled.len(), SPECS.len());
     }
 }

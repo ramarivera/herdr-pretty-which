@@ -302,12 +302,11 @@ fn tree_item(row: TreeRow, selected: bool, query: &str, palette: Palette) -> Lis
             .fg(palette.selected_text_color())
             .bg(palette.accent)
             .add_modifier(Modifier::BOLD)
-    } else if row.context_only {
-        Style::default().fg(palette.muted)
-    } else if row
-        .binding
-        .as_ref()
-        .is_some_and(|binding| binding.status == BindingStatus::Disabled)
+    } else if row.context_only
+        || row
+            .binding
+            .as_ref()
+            .is_some_and(|binding| binding.status == BindingStatus::Disabled)
     {
         Style::default().fg(palette.muted)
     } else {

@@ -6,7 +6,8 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use herdr_pretty_which::config::load_herdr_config;
-use herdr_pretty_which::model::effective_bindings;
+use herdr_pretty_which::discover::discover_default_config_actions;
+use herdr_pretty_which::model::effective_bindings_with_discovery;
 use herdr_pretty_which::render::{render_app, render_to_string};
 use herdr_pretty_which::theme::Palette;
 use herdr_pretty_which::App;
@@ -39,6 +40,21 @@ struct Args {
     height: u16,
 }
 
+/// Compare discovered Herdr actions against the modeled SPECS table and return
+/// the names that are not yet modeled, so new Herdr actions are flagged on stderr
+/// instead of being silently bucketed as `Discovered`. Cross-reference:
+/// `herdr_pretty_which::model::modeled_actions`.
+fn unmodeled_discovered_actions(
+    discovered: &std::collections::BTreeMap<String, Vec<String>>,
+) -> Vec<String> {
+    let modeled = herdr_pretty_which::model::modeled_actions();
+    discovered
+        .keys()
+        .filter(|action| !modeled.contains(action.as_str()))
+        .cloned()
+        .collect()
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
     let source = load_herdr_config(args.config)?;
@@ -49,7 +65,16 @@ fn main() -> Result<()> {
         .clone()
         .unwrap_or_else(|| "terminal".to_string());
     let palette = Palette::from_theme(&source.config.theme);
-    let bindings = effective_bindings(&source.config.keys);
+    let discovered = discover_default_config_actions();
+    let unmodeled = unmodeled_discovered_actions(&discovered);
+    if !unmodeled.is_empty() {
+        eprintln!(
+            "herdr-pretty-which: discovered {} unmodeled Herdr action(s): {}",
+            unmodeled.len(),
+            unmodeled.join(", ")
+        );
+    }
+    let bindings = effective_bindings_with_discovery(&source.config.keys, Some(&discovered));
     let app = App::new(bindings, display_path(&source.path), theme_name);
 
     if args.snapshot || !io::stdout().is_terminal() {
