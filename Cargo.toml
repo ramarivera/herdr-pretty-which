@@ -1,6 +1,6 @@
 [package]
 name = "herdr-pretty-which"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A tasteful which-key style command palette for Herdr"
 license = "MIT"

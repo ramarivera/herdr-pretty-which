@@ -9,6 +9,7 @@ use herdr_pretty_which::config::load_herdr_config;
 use herdr_pretty_which::discover::discover_default_config_actions;
 use herdr_pretty_which::model::effective_bindings_with_discovery;
 use herdr_pretty_which::render::{render_app, render_to_string};
+use herdr_pretty_which::state::{load_state, save_state, AppState};
 use herdr_pretty_which::theme::Palette;
 use herdr_pretty_which::App;
 use ratatui::backend::CrosstermBackend;
@@ -75,7 +76,7 @@ fn main() -> Result<()> {
         );
     }
     let bindings = effective_bindings_with_discovery(&source.config.keys, Some(&discovered));
-    let app = App::new(bindings, display_path(&source.path), theme_name);
+    let mut app = App::new(bindings, display_path(&source.path), theme_name);
 
     if args.snapshot || !io::stdout().is_terminal() {
         let app = app.snapshot(args.query);
@@ -84,6 +85,11 @@ fn main() -> Result<()> {
             render_to_string(&app, palette, args.width, args.height)?
         );
         return Ok(());
+    }
+
+    match load_state() {
+        Ok(state) => app.set_navigation_view(state.navigation_view),
+        Err(err) => eprintln!("herdr-pretty-which: ignoring unreadable state: {err:#}"),
     }
 
     run_interactive(app, palette)
@@ -116,7 +122,8 @@ fn run_interactive(mut app: App, palette: Palette) -> Result<()> {
                     KeyCode::Left => app.tree_left(),
                     KeyCode::Right => app.tree_right(),
                     KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        app.toggle_navigation_view()
+                        app.toggle_navigation_view();
+                        let _ = save_state(&AppState::from_navigation_view(app.navigation_view));
                     }
                     KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         app.collapse_all_tree_nodes()

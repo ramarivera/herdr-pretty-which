@@ -109,7 +109,11 @@ fn parse_binding_value(value: &str) -> Option<Vec<String>> {
         return Some(keys);
     }
     let scalar = value.trim_matches('"').to_string();
-    Some(if scalar.is_empty() { Vec::new() } else { vec![scalar] })
+    Some(if scalar.is_empty() {
+        Vec::new()
+    } else {
+        vec![scalar]
+    })
 }
 
 #[cfg(test)]
@@ -179,7 +183,8 @@ mod tests {
 
     #[test]
     fn parses_array_bindings() {
-        let actions = parse_default_config("[keys]\n# split_vertical = [\"prefix+v\", \"prefix+|\"]\n");
+        let actions =
+            parse_default_config("[keys]\n# split_vertical = [\"prefix+v\", \"prefix+|\"]\n");
         assert_eq!(
             actions.get("split_vertical"),
             Some(&vec!["prefix+v".to_string(), "prefix+|".to_string()])

@@ -797,17 +797,12 @@ mod tests {
         // Simulate a future Herdr release adding a new action that Pretty
         // Which's static SPECS table does not yet know about.
         let mut discovered = BTreeMap::new();
-        discovered.insert(
-            "future_action".to_string(),
-            vec!["prefix+9".to_string()],
-        );
+        discovered.insert("future_action".to_string(), vec!["prefix+9".to_string()]);
         // A modeled action must NOT be duplicated as Discovered.
         discovered.insert("next_tab".to_string(), vec!["prefix+n".to_string()]);
 
-        let bindings = effective_bindings_with_discovery(
-            &KeysSection::default(),
-            Some(&discovered),
-        );
+        let bindings =
+            effective_bindings_with_discovery(&KeysSection::default(), Some(&discovered));
 
         let future = bindings
             .iter()

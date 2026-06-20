@@ -1,6 +1,7 @@
 use crate::model::{Binding, BindingStatus, Category};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,7 +17,8 @@ pub enum BindingViewMode {
     Unassigned,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum NavigationViewMode {
     List,
     Tree,
@@ -100,7 +102,7 @@ impl App {
             selected: 0,
             mode: AppMode::Interactive,
             binding_view: BindingViewMode::All,
-            navigation_view: NavigationViewMode::List,
+            navigation_view: NavigationViewMode::Tree,
             collapsed_tree_paths: BTreeSet::new(),
             bindings,
         }
@@ -156,16 +158,24 @@ impl App {
         self.selected = 0;
     }
 
-    pub fn toggle_navigation_view(&mut self) {
+    pub fn set_navigation_view(&mut self, navigation_view: NavigationViewMode) {
+        if self.navigation_view == navigation_view {
+            return;
+        }
         let selected_action = self.selected_binding().map(|binding| binding.action);
-        self.navigation_view = match self.navigation_view {
-            NavigationViewMode::List => NavigationViewMode::Tree,
-            NavigationViewMode::Tree => NavigationViewMode::List,
-        };
+        self.navigation_view = navigation_view;
         self.selected = 0;
         if let Some(action) = selected_action {
             self.select_action(&action);
         }
+    }
+
+    pub fn toggle_navigation_view(&mut self) {
+        let next = match self.navigation_view {
+            NavigationViewMode::List => NavigationViewMode::Tree,
+            NavigationViewMode::Tree => NavigationViewMode::List,
+        };
+        self.set_navigation_view(next);
     }
 
     pub fn filtered_bindings(&self) -> Vec<(Binding, Option<i64>)> {
@@ -485,6 +495,7 @@ mod tests {
             "x".into(),
             "terminal".into(),
         );
+        app.set_navigation_view(NavigationViewMode::List);
         for _ in 0..500 {
             app.move_down();
         }
@@ -539,6 +550,7 @@ mod tests {
             "x".into(),
             "terminal".into(),
         );
+        app.set_navigation_view(NavigationViewMode::List);
         app.set_query("split");
         app.next_binding_view();
         app.toggle_navigation_view();
@@ -563,7 +575,6 @@ mod tests {
             "x".into(),
             "terminal".into(),
         );
-        app.toggle_navigation_view();
         app.set_query("existing");
 
         let rows = app.visible_tree_rows();
@@ -600,7 +611,6 @@ mod tests {
             "x".into(),
             "terminal".into(),
         );
-        app.toggle_navigation_view();
         let focus_left_index = app
             .visible_tree_rows()
             .iter()

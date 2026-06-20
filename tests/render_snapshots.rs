@@ -53,7 +53,6 @@ fn tree_filtered_render_snapshot() {
         "fixture/config.toml".into(),
         "terminal".into(),
     );
-    app.toggle_navigation_view();
     app.set_query("existing");
     let output =
         render_to_string(&app, Palette::from_theme(&ThemeConfig::default()), 100, 28).unwrap();

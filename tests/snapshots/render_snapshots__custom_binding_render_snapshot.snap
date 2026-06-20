@@ -5,22 +5,22 @@ expression: output
 ┌ Herdr Pretty Which — mnemonic training wheels ───────────────────────────────────────────────────┐
 │┌ Session ───────────────────────────────────────────────────────────────────────────────────────┐│
 ││Config fixture/config.toml   Theme terminal   37 assigned · 9 unassigned                        ││
-││Search › next tab   Mode ALL   View LIST   Shown 6 / 46 bindings                                ││
+││Search › next tab   Mode ALL   View TREE   Shown 6 / 46 bindings                                ││
 │└────────────────────────────────────────────────────────────────────────────────────────────────┘│
-│┌ Bindings · List ─────────────────────────────────────────────────────┐┌ Details ───────────────┐│
-││Action             Keys                   Hint                Origin  ││Next tab                ││
-││Next tab           prefix+n, ctrl+alt+n   Move one tab right/ config  ││                        ││
-││Next pane          prefix+tab             Cycle through panes default ││Action  next_tab        ││
-││Next agent         —                      Focus next visible  unset   ││Keys    prefix+n,       ││
-││New tab            prefix+c               Create a tab in thi default ││ctrl+alt+n              ││
-││Previous pane      prefix+shift+tab       Cycle backward thro default ││Default prefix+n        ││
-││Rename tab         prefix+shift+t         Give the focused ta default ││                        ││
-││                                                                      ││Move one tab            ││
-││                                                                      │└────────────────────────┘│
-││                                                                      │┌ Categories ────────────┐│
-││                                                                      ││Core        5           ││
-││                                                                      ││Workspaces 13           ││
-││                                                                      ││Tabs        6           ││
+│┌ Bindings · Tree ─────────────────────────────────────────────────────┐┌ Details ───────────────┐│
+││▾ Tabs                                                                ││New tab                 ││
+││  ▾ Lifecycle                                                         ││                        ││
+││    • New tab  prefix+c  default  match                               ││Action  new_tab         ││
+││    • Rename tab  prefix+shift+t  default  match                      ││Keys    prefix+c        ││
+││  ▾ Navigation                                                        ││Default prefix+c        ││
+││    • Next tab  prefix+n, ctrl+alt+n  config  match                   ││                        ││
+││▾ Panes                                                               ││Create a tab in this    ││
+││  ▾ Focus                                                             ││workspace.              ││
+││    • Next pane  prefix+tab  default  match                           │└────────────────────────┘│
+││    • Previous pane  prefix+shift+tab  default  match                 │┌ Categories ────────────┐│
+││▾ Agents                                                              ││Core        5           ││
+││  ▾ Focus                                                             ││Workspaces 13           ││
+││    • Next agent  —  unset  match                                     ││Tabs        6           ││
 ││                                                                      ││Panes      19           ││
 ││                                                                      ││Agents      3           ││
 │└──────────────────────────────────────────────────────────────────────┘└────────────────────────┘│

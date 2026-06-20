@@ -325,17 +325,27 @@ fn tree_item(row: TreeRow, selected: bool, query: &str, palette: Palette) -> Lis
 
     if let Some(binding) = row.binding.as_ref() {
         spans.push(Span::styled("  ", base_style));
+        let metadata_style = |color| {
+            if selected {
+                Style::default()
+                    .fg(Palette::selected_text_color_for(color, palette.accent))
+                    .bg(palette.accent)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(color)
+            }
+        };
         spans.push(Span::styled(
             keys_for(binding),
-            Style::default().fg(palette.accent_2),
+            metadata_style(palette.accent_2),
         ));
         spans.push(Span::styled("  ", base_style));
         spans.push(Span::styled(
             origin_for(binding),
-            Style::default().fg(palette.muted),
+            metadata_style(palette.muted),
         ));
         if row.score.is_some() {
-            spans.push(Span::styled("  match", Style::default().fg(palette.muted)));
+            spans.push(Span::styled("  match", metadata_style(palette.muted)));
         }
     }
 
@@ -582,5 +592,43 @@ mod tests {
             .collect::<String>();
         assert!(first_line.contains("Session"));
         assert!(!first_line.contains("Herdr Pretty Which — mnemonic training wheels"));
+    }
+
+    #[test]
+    fn selected_tree_metadata_uses_contrast_safe_colors() {
+        let mut app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "config.toml".into(),
+            "catppuccin-latte".into(),
+        );
+        app.set_query("workspace picker");
+        let palette = Palette::from_theme(&ThemeConfig {
+            name: Some("catppuccin-latte".to_string()),
+            custom: Default::default(),
+        });
+        let backend = render_embedded_to_test_backend(&app, palette, 100, 18).unwrap();
+        let buffer = backend.buffer();
+        let expected_key_color = Palette::selected_text_color_for(palette.accent_2, palette.accent);
+        let expected_origin_color = Palette::selected_text_color_for(palette.muted, palette.accent);
+
+        let mut selected_cells = buffer
+            .content()
+            .iter()
+            .filter(|cell| cell.style().bg == Some(palette.accent) && cell.symbol() != " ")
+            .peekable();
+        assert!(selected_cells.peek().is_some(), "expected a selected row");
+
+        for cell in selected_cells {
+            assert_ne!(cell.style().fg, Some(palette.accent_2));
+            assert_ne!(cell.style().fg, Some(palette.muted));
+            assert!(
+                matches!(
+                    cell.style().fg,
+                    Some(color) if color == expected_key_color || color == expected_origin_color || color == palette.selected_text_color()
+                ),
+                "selected row cell used an unexpected foreground color: {:?}",
+                cell.style().fg
+            );
+        }
     }
 }
