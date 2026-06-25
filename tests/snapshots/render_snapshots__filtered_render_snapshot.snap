@@ -4,8 +4,8 @@ expression: output
 ---
 ┌ Herdr Pretty Which — mnemonic training wheels ───────────────────────────────────────────────────┐
 │┌ Session ───────────────────────────────────────────────────────────────────────────────────────┐│
-││Config fixture/config.toml   Theme terminal   37 assigned · 9 unassigned                        ││
-││Search › split   Mode ALL   View TREE   Shown 5 / 46 bindings                                   ││
+││Config fixture/config.toml   Theme terminal   38 assigned · 9 unassigned                        ││
+││Search › split   Mode ALL   View TREE   Shown 5 / 47 bindings                                   ││
 │└────────────────────────────────────────────────────────────────────────────────────────────────┘│
 │┌ Bindings · Tree ─────────────────────────────────────────────────────┐┌ Details ───────────────┐│
 ││▾ Panes                                                               ││Previous pane           ││
@@ -18,7 +18,7 @@ expression: output
 ││  ▾ Navigation                                                        ││Cycle backward through  ││
 ││    • Navigate workspace up  up  default  match                       │└────────────────────────┘│
 ││    • Navigate workspace down  down  default  match                   │┌ Categories ────────────┐│
-││                                                                      ││Core        5           ││
+││                                                                      ││Core        6           ││
 ││                                                                      ││Workspaces 13           ││
 ││                                                                      ││Tabs        6           ││
 ││                                                                      ││Panes      19           ││

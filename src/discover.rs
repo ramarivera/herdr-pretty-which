@@ -97,23 +97,23 @@ pub fn parse_default_config(text: &str) -> BTreeMap<String, Vec<String>> {
 /// Parse a TOML-ish binding value into a list of key strings.
 /// Handles scalar `"prefix+v"`, empty `""`, and array `["a", "b"]` forms.
 fn parse_binding_value(value: &str) -> Option<Vec<String>> {
-    let value = value.trim();
-    if let Some(inner) = value.strip_prefix('[').and_then(|v| v.strip_suffix(']')) {
-        let mut keys = Vec::new();
-        for part in inner.split(',') {
-            let key = part.trim().trim_matches('"').to_string();
-            if !key.is_empty() {
-                keys.push(key);
-            }
-        }
-        return Some(keys);
+    let parsed: toml::Value = toml::from_str(&format!("value = {value}")).ok()?;
+    match parsed.get("value")? {
+        toml::Value::String(scalar) => Some(if scalar.is_empty() {
+            Vec::new()
+        } else {
+            vec![scalar.clone()]
+        }),
+        toml::Value::Array(values) => Some(
+            values
+                .iter()
+                .filter_map(|value| value.as_str())
+                .filter(|key| !key.trim().is_empty())
+                .map(str::to_string)
+                .collect(),
+        ),
+        _ => None,
     }
-    let scalar = value.trim_matches('"').to_string();
-    Some(if scalar.is_empty() {
-        Vec::new()
-    } else {
-        vec![scalar]
-    })
 }
 
 #[cfg(test)]
@@ -185,6 +185,21 @@ mod tests {
     fn parses_array_bindings() {
         let actions =
             parse_default_config("[keys]\n# split_vertical = [\"prefix+v\", \"prefix+|\"]\n");
+        assert_eq!(
+            actions.get("split_vertical"),
+            Some(&vec!["prefix+v".to_string(), "prefix+|".to_string()])
+        );
+    }
+
+    #[test]
+    fn parses_inline_comments_after_binding_values() {
+        let actions = parse_default_config(
+            "[keys]\n# remote_image_paste = \"ctrl+v\" # only active in herdr --remote\n# split_vertical = [\"prefix+v\", \"prefix+|\"] # aliases\n",
+        );
+        assert_eq!(
+            actions.get("remote_image_paste"),
+            Some(&vec!["ctrl+v".to_string()])
+        );
         assert_eq!(
             actions.get("split_vertical"),
             Some(&vec!["prefix+v".to_string(), "prefix+|".to_string()])

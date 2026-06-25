@@ -72,6 +72,7 @@ pub struct KeysSection {
     pub detach: Option<KeyValue>,
     pub reload_config: Option<KeyValue>,
     pub open_notification_target: Option<KeyValue>,
+    pub remote_image_paste: Option<KeyValue>,
     pub workspace_picker: Option<KeyValue>,
     pub goto: Option<KeyValue>,
     pub new_workspace: Option<KeyValue>,
@@ -188,6 +189,13 @@ const SPECS: &[BindingSpec] = &[
         default_keys: &["prefix+o"],
         category: Category::Core,
         hint: "Jump to what needs attention.",
+    },
+    BindingSpec {
+        action: "remote_image_paste",
+        label: "Remote image paste",
+        default_keys: &["ctrl+v"],
+        category: Category::Core,
+        hint: "Paste images while attached to a remote Herdr session.",
     },
     BindingSpec {
         action: "workspace_picker",
@@ -631,9 +639,12 @@ fn strings(values: &[&str]) -> Vec<String> {
 
 fn tree_path_for_action(action: &str, category: Category) -> Vec<String> {
     let segments = match action {
-        "help" | "settings" | "detach" | "reload_config" | "open_notification_target" => {
-            &["Session", "Core"][..]
-        }
+        "help"
+        | "settings"
+        | "detach"
+        | "reload_config"
+        | "open_notification_target"
+        | "remote_image_paste" => &["Session", "Core"][..],
         "workspace_picker" | "goto" => &["Workspaces", "Picker"][..],
         "new_workspace" | "rename_workspace" | "close_workspace" => {
             &["Workspaces", "Lifecycle"][..]
@@ -675,6 +686,7 @@ fn configured_value(keys: &KeysSection, action: &str) -> Option<Vec<String>> {
         "detach" => keys.detach.as_ref(),
         "reload_config" => keys.reload_config.as_ref(),
         "open_notification_target" => keys.open_notification_target.as_ref(),
+        "remote_image_paste" => keys.remote_image_paste.as_ref(),
         "workspace_picker" => keys.workspace_picker.as_ref(),
         "goto" => keys.goto.as_ref(),
         "new_workspace" => keys.new_workspace.as_ref(),

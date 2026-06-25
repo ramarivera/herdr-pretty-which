@@ -2,7 +2,7 @@
 # Cross-reference: tools/herdr-pretty-which/README.md and tools/herdr-pretty-which/cargo/herdr-plugin.toml
 id = "ramarivera.pretty-which"
 name = "Pretty Which"
-version = "0.1.2"
+version = "0.1.3"
 min_herdr_version = "0.7.0"
 description = "A tasteful which-key style training overlay for Herdr keybindings."
 platforms = ["linux", "macos"]

@@ -442,6 +442,11 @@ impl App {
     }
 }
 
+pub fn binding_search_score(binding: &Binding, query: &str) -> Option<i64> {
+    let matcher = SkimMatcherV2::default().smart_case();
+    score_binding(&matcher, binding, query)
+}
+
 fn score_binding(matcher: &SkimMatcherV2, binding: &Binding, query: &str) -> Option<i64> {
     let query_lower = query.to_lowercase();
     let keyish_query = query_lower.contains('+')
@@ -486,6 +491,18 @@ mod tests {
             .map(|(binding, _)| binding.label)
             .collect::<Vec<_>>();
         assert!(labels.iter().any(|label| label.contains("Split")));
+    }
+
+    #[test]
+    fn binding_search_score_matches_labels_and_keyish_queries() {
+        let bindings = effective_bindings(&KeysSection::default());
+        let split = bindings
+            .iter()
+            .find(|binding| binding.action == "split_vertical")
+            .unwrap();
+
+        assert!(binding_search_score(split, "split").is_some());
+        assert!(binding_search_score(split, "prefix+v").is_some());
     }
 
     #[test]

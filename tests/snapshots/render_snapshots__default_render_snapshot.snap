@@ -4,8 +4,8 @@ expression: output
 ---
 ┌ Herdr Pretty Which — mnemonic training wheels ───────────────────────────────────────────────────┐
 │┌ Session ───────────────────────────────────────────────────────────────────────────────────────┐│
-││Config fixture/config.toml   Theme terminal   37 assigned · 9 unassigned                        ││
-││Search › type to fuzzy-filter   Mode ALL   View TREE   Shown 46 / 46 bindings                   ││
+││Config fixture/config.toml   Theme terminal   38 assigned · 9 unassigned                        ││
+││Search › type to fuzzy-filter   Mode ALL   View TREE   Shown 47 / 47 bindings                   ││
 │└────────────────────────────────────────────────────────────────────────────────────────────────┘│
 │┌ Bindings · Tree ─────────────────────────────────────────────────────┐┌ Details ───────────────┐│
 ││▾ Session                                                             ││Session                 ││
@@ -15,14 +15,14 @@ expression: output
 ││    • Detach  prefix+q  default                                       ││State   expanded        ││
 ││    • Reload config  prefix+shift+r  default                          ││                        ││
 ││    • Open notification  prefix+o  default                            ││Use ←/→ to collapse,    ││
-││▾ Workspaces                                                          ││expand, or enter the    ││
-││  ▾ Picker                                                            │└────────────────────────┘│
-││    • Workspace picker  prefix+w  default                             │┌ Categories ────────────┐│
-││    • Goto  prefix+g  default                                         ││Core        5           ││
-││  ▾ Lifecycle                                                         ││Workspaces 13           ││
-││    • New workspace  prefix+shift+n  default                          ││Tabs        6           ││
-││  ▾ Worktrees                                                         ││Panes      19           ││
-││    • New worktree  prefix+shift+g  default                           ││Agents      3           ││
+││    • Remote image paste  ctrl+v  default                             ││expand, or enter the    ││
+││▾ Workspaces                                                          │└────────────────────────┘│
+││  ▾ Picker                                                            │┌ Categories ────────────┐│
+││    • Workspace picker  prefix+w  default                             ││Core        6           ││
+││    • Goto  prefix+g  default                                         ││Workspaces 13           ││
+││  ▾ Lifecycle                                                         ││Tabs        6           ││
+││    • New workspace  prefix+shift+n  default                          ││Panes      19           ││
+││  ▾ Worktrees                                                         ││Agents      3           ││
 │└──────────────────────────────────────────────────────────────────────┘└────────────────────────┘│
 │┌ Muscle memory ─────────────────────────────────────────────────────────────────────────────────┐│
 ││↑/↓ move   type filter   backspace edit   tab/shift-tab mode   ctrl+t view   ←/→ tree   esc/q cl││
