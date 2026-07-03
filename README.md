@@ -1,27 +1,33 @@
 # Herdr Pretty Which
 
+[![Crates.io](https://img.shields.io/crates/v/herdr-pretty-which.svg)](https://crates.io/crates/herdr-pretty-which)
+[![Docs.rs](https://docs.rs/herdr-pretty-which/badge.svg)](https://docs.rs/herdr-pretty-which)
+[![CI](https://github.com/ramarivera/herdr-pretty-which/actions/workflows/ci.yml/badge.svg)](https://github.com/ramarivera/herdr-pretty-which/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+![Herdr Pretty Which cover](assets/readme-cover.png)
+
 A which-key style training overlay for [Herdr](https://herdr.dev), built as a Rust/Ratatui plugin.
 
 It reads your real Herdr config, merges it with known defaults, and renders a searchable keybinding guide with list/tree modes, assigned/unassigned filtering, and contrast-safe selection styling. It does **not** invent bindings; values are marked as default, config, or unset based on the loaded config.
 
-## Install from this checkout
+## Install
 
 Plugin linking requires Herdr's plugin-capable line (`herdr >= 0.7.0`). If `herdr --version` reports an older version, use the snapshot command for now or upgrade Herdr before running `herdr plugin ...` commands.
 
 ```nu
-cd ~/dev/herdr-pretty-which
-cargo install --path . --locked
+cargo install herdr-pretty-which --locked
 herdr plugin link cargo
 herdr plugin pane open --plugin ramarivera.pretty-which --entrypoint overlay --placement overlay --focus
 ```
 
-## Install from Cargo later
+## Local development
 
-When this crate is published and the host Herdr is `>= 0.7.0`, install the binary and link the Cargo-oriented manifest:
+Use the checkout path only when developing the plugin itself:
 
 ```nu
-cargo install herdr-pretty-which --locked
-herdr plugin link ~/dev/herdr-pretty-which/cargo
+cargo install --path . --locked
+herdr plugin link .
 herdr plugin pane open --plugin ramarivera.pretty-which --entrypoint overlay --placement overlay --focus
 ```
 
