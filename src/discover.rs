@@ -11,11 +11,25 @@
 //! unparseable output, discovery returns an empty map and the app falls back to
 //! the static specs unchanged. Discovery never panics and never blocks rendering.
 //!
+//! When launched as a Herdr plugin pane, prefer `HERDR_BIN_PATH` (injected by
+//! Herdr) over a bare `herdr` PATH lookup so discovery uses the same binary the
+//! host is running. Matches the palette dispatch convention.
+//!
 //! Cross-reference: `herdr --default-config` `[keys]` reference and
 //! `crate::model::effective_bindings_with_discovery`.
 
 use std::collections::BTreeMap;
 use std::process::Command;
+
+/// Resolve the `herdr` binary for discovery.
+///
+/// Order: non-empty `HERDR_BIN_PATH`, then `"herdr"` for PATH lookup.
+fn herdr_bin() -> String {
+    std::env::var("HERDR_BIN_PATH")
+        .ok()
+        .filter(|path| !path.is_empty())
+        .unwrap_or_else(|| "herdr".to_string())
+}
 
 /// Structural keys that appear in the `[keys]` reference but are not bindable
 /// actions: `prefix` is the prefix key itself, and the rest belong to
@@ -40,7 +54,7 @@ const NON_ACTION_KEYS: &[&str] = &[
 /// on any failure (binary missing, non-zero exit, non-UTF-8 output) so callers
 /// can treat discovery as purely additive.
 pub fn discover_default_config_actions() -> BTreeMap<String, Vec<String>> {
-    let output = match Command::new("herdr").arg("--default-config").output() {
+    let output = match Command::new(herdr_bin()).arg("--default-config").output() {
         Ok(output) if output.status.success() => output,
         _ => return BTreeMap::new(),
     };
@@ -119,6 +133,13 @@ fn parse_binding_value(value: &str) -> Option<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::sync::Mutex;
+    use tempfile::tempdir;
+
+    // Env mutation is process-global; serialize tests that touch HERDR_BIN_PATH.
+    static HERDR_BIN_LOCK: Mutex<()> = Mutex::new(());
 
     const FIXTURE: &str = "\
 # herdr configuration
@@ -220,5 +241,49 @@ mod tests {
         // On CI/machines without herdr this is empty; on Ramiro's box it is the
         // full action set. Either way it must not panic and must be a map.
         let _ = actions.len();
+    }
+
+    #[test]
+    fn herdr_bin_prefers_non_empty_herdr_bin_path() {
+        let _guard = HERDR_BIN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let previous = std::env::var_os("HERDR_BIN_PATH");
+        std::env::set_var("HERDR_BIN_PATH", "/tmp/custom-herdr-bin");
+        assert_eq!(herdr_bin(), "/tmp/custom-herdr-bin");
+        std::env::set_var("HERDR_BIN_PATH", "");
+        assert_eq!(herdr_bin(), "herdr");
+        match previous {
+            Some(value) => std::env::set_var("HERDR_BIN_PATH", value),
+            None => std::env::remove_var("HERDR_BIN_PATH"),
+        }
+    }
+
+    #[test]
+    fn discover_uses_herdr_bin_path_when_set() {
+        let _guard = HERDR_BIN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let previous = std::env::var_os("HERDR_BIN_PATH");
+        let tmp = tempdir().expect("tempdir");
+        let script = tmp.path().join("fake_herdr");
+        fs::write(
+            &script,
+            "#!/bin/sh\nif [ \"$1\" = \"--default-config\" ]; then\ncat <<'EOF'\n[keys]\n# help = \"prefix+?\"\n# unique_from_fake_herdr = \"prefix+zz\"\nEOF\nexit 0\nfi\nexit 1\n",
+        )
+        .expect("write fake herdr");
+        let mut perms = fs::metadata(&script).expect("meta").permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&script, perms).expect("chmod");
+
+        std::env::set_var("HERDR_BIN_PATH", &script);
+        let actions = discover_default_config_actions();
+        match previous {
+            Some(value) => std::env::set_var("HERDR_BIN_PATH", value),
+            None => std::env::remove_var("HERDR_BIN_PATH"),
+        }
+
+        assert_eq!(
+            actions.get("unique_from_fake_herdr"),
+            Some(&vec!["prefix+zz".to_string()]),
+            "discovery must invoke HERDR_BIN_PATH, not a bare PATH herdr"
+        );
+        assert_eq!(actions.get("help"), Some(&vec!["prefix+?".to_string()]));
     }
 }
