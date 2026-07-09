@@ -2,7 +2,7 @@
 name = "herdr-pretty-which"
 version = "0.1.5"
 edition = "2021"
-description = "A tasteful which-key style command palette for Herdr"
+description = "A tasteful which-key style keybinding overlay for Herdr"
 license = "MIT"
 repository = "https://github.com/ramarivera/herdr-pretty-which"
 homepage = "https://github.com/ramarivera/herdr-pretty-which"

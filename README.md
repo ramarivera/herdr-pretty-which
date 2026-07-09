@@ -21,6 +21,13 @@ herdr plugin link cargo
 herdr plugin pane open --plugin ramarivera.pretty-which --entrypoint overlay --placement overlay --focus
 ```
 
+You can also install the GitHub-managed plugin checkout directly. Herdr will
+build the release binary during install and run it from the managed checkout:
+
+```nu
+herdr plugin install ramarivera/herdr-pretty-which
+```
+
 ## Local development
 
 Use the checkout path only when developing the plugin itself:
