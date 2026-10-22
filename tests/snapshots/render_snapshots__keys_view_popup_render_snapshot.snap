@@ -1,0 +1,28 @@
+---
+source: tests/render_snapshots.rs
+expression: "render(&app, 100, 24)"
+---
+┌ Herdr Pretty Which — mnemonic training wheels ───────────────────────────────────────────────────┐
+│ Herdr Pretty Which  │  prefix ctrl+b           KEYS · ALL · 18 / 47 shown   Press <esc> to close │
+│──────────────────────────────────────────────────────────────────────────────────────────────────│
+│ ⌕ tab▏                                              x  after prefix    alt+x  direct    —  unset │
+│──────────────────────────────────────────────────────────────────────────────────────────────────│
+│ ▦ WORKSPACES  2                                │ ◫ PANES  7 (cont.)                              │
+│ ├─  g        Goto                              │ ├─  shift+tab  Previous pane                    │
+│ └─  —        Switch workspace                  │ ├─  —          Last pane                        │
+│                                                │ ├─  v          Split vertical                   │
+│ ▭ TABS  6                                      │ ├─  minus      Split horizontal                 │
+│ ├─  c        New tab                           │ └─  b          Toggle sidebar                   │
+│ ├─  shift+t  Rename tab                        │                                                 │
+│ ├─  p        Previous tab                      │ ❯ AGENTS  3                                     │
+│ ├─  n        Next tab +1                       │ ├─  —          Previous agent                   │
+│ ├─  1..9     Switch tab                        │ ├─  —          Next agent                       │
+│ └─  shift+x  Close tab                         │ └─  —          Focus agent                      │
+│                                                │                                                 │
+│ ◫ PANES  7                                     │                                                 │
+│ ├─  e        Edit scrollback                   │                                                 │
+│ ├─  tab      Next pane                         │                                                 │
+│──────────────────────────────────────────────────────────────────────────────────────────────────│
+│ Goto  prefix+g  default  Fuzzy jump across workspaces, tabs, and agents.                         │
+│  ↑↓  move   ←→  group   type  filter   tab  mode   ctrl+t  view   esc  close                     │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘

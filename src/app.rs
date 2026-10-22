@@ -20,6 +20,8 @@ pub enum BindingViewMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum NavigationViewMode {
+    /// Which-key style category columns with key badges.
+    Keys,
     List,
     Tree,
 }
@@ -27,10 +29,27 @@ pub enum NavigationViewMode {
 impl NavigationViewMode {
     pub const fn label(self) -> &'static str {
         match self {
+            Self::Keys => "KEYS",
             Self::List => "LIST",
             Self::Tree => "TREE",
         }
     }
+
+    /// Cycle order used by `Ctrl+T`: KEYS → TREE → LIST → KEYS.
+    pub const fn next(self) -> Self {
+        match self {
+            Self::Keys => Self::Tree,
+            Self::Tree => Self::List,
+            Self::List => Self::Keys,
+        }
+    }
+}
+
+/// One category column section in the KEYS view, in `Category::ALL` order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyGroup {
+    pub category: Category,
+    pub bindings: Vec<(Binding, Option<i64>)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,6 +102,8 @@ pub struct App {
     pub title: String,
     pub config_path: String,
     pub theme_name: String,
+    /// Herdr prefix key from config or `herdr --default-config`, when known.
+    pub prefix: Option<String>,
     pub query: String,
     pub selected: usize,
     pub mode: AppMode,
@@ -98,20 +119,46 @@ impl App {
             title: "Herdr Pretty Which".to_string(),
             config_path,
             theme_name,
+            prefix: None,
             query: String::new(),
             selected: 0,
             mode: AppMode::Interactive,
             binding_view: BindingViewMode::All,
-            navigation_view: NavigationViewMode::Tree,
+            navigation_view: NavigationViewMode::Keys,
             collapsed_tree_paths: BTreeSet::new(),
             bindings,
         }
     }
 
+    pub fn with_prefix(mut self, prefix: Option<String>) -> Self {
+        self.prefix = prefix.filter(|prefix| !prefix.trim().is_empty());
+        self
+    }
+
     pub fn snapshot(mut self, query: impl Into<String>) -> Self {
         self.mode = AppMode::Snapshot;
         self.query = query.into();
+        self.select_best_key_match();
         self
+    }
+
+    /// KEYS view keeps category order while filtering, so after a query change
+    /// select the best-scoring match instead of the first group's first item.
+    fn select_best_key_match(&mut self) {
+        self.selected = 0;
+        if self.navigation_view != NavigationViewMode::Keys {
+            return;
+        }
+        let best = self
+            .key_groups()
+            .into_iter()
+            .flat_map(|group| group.bindings)
+            .enumerate()
+            .filter_map(|(index, (_, score))| score.map(|score| (index, score)))
+            .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(&a.0)));
+        if let Some((index, _)) = best {
+            self.selected = index;
+        }
     }
 
     pub fn bindings(&self) -> &[Binding] {
@@ -171,11 +218,7 @@ impl App {
     }
 
     pub fn toggle_navigation_view(&mut self) {
-        let next = match self.navigation_view {
-            NavigationViewMode::List => NavigationViewMode::Tree,
-            NavigationViewMode::Tree => NavigationViewMode::List,
-        };
-        self.set_navigation_view(next);
+        self.set_navigation_view(self.navigation_view.next());
     }
 
     pub fn filtered_bindings(&self) -> Vec<(Binding, Option<i64>)> {
@@ -200,6 +243,46 @@ impl App {
             .collect::<Vec<_>>();
         scored.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.label.cmp(&b.0.label)));
         scored
+    }
+
+    /// Bindings grouped by category for the KEYS view. Groups keep the static
+    /// spec order (not score order) so columns stay stable while filtering;
+    /// empty groups are omitted.
+    pub fn key_groups(&self) -> Vec<KeyGroup> {
+        let query = self.query.trim();
+        let matcher = SkimMatcherV2::default().smart_case();
+        Category::ALL
+            .iter()
+            .filter_map(|category| {
+                let bindings = self
+                    .bindings
+                    .iter()
+                    .filter(|binding| binding.category == *category && self.matches_view(binding))
+                    .filter_map(|binding| {
+                        if query.is_empty() {
+                            Some((binding.clone(), None))
+                        } else {
+                            score_binding(&matcher, binding, query)
+                                .map(|score| (binding.clone(), Some(score)))
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                (!bindings.is_empty()).then_some(KeyGroup {
+                    category: *category,
+                    bindings,
+                })
+            })
+            .collect()
+    }
+
+    fn key_group_starts(&self) -> Vec<usize> {
+        let mut starts = Vec::new();
+        let mut offset = 0;
+        for group in self.key_groups() {
+            starts.push(offset);
+            offset += group.bindings.len();
+        }
+        starts
     }
 
     pub fn visible_tree_rows(&self) -> Vec<TreeRow> {
@@ -279,6 +362,12 @@ impl App {
 
     pub fn selected_binding(&self) -> Option<Binding> {
         match self.navigation_view {
+            NavigationViewMode::Keys => self
+                .key_groups()
+                .into_iter()
+                .flat_map(|group| group.bindings)
+                .nth(self.selected)
+                .map(|(binding, _)| binding),
             NavigationViewMode::List => self
                 .filtered_bindings()
                 .get(self.selected)
@@ -289,17 +378,17 @@ impl App {
 
     pub fn set_query(&mut self, query: impl Into<String>) {
         self.query = query.into();
-        self.selected = 0;
+        self.select_best_key_match();
     }
 
     pub fn push_query_char(&mut self, ch: char) {
         self.query.push(ch);
-        self.selected = 0;
+        self.select_best_key_match();
     }
 
     pub fn pop_query_char(&mut self) {
         self.query.pop();
-        self.selected = 0;
+        self.select_best_key_match();
     }
 
     pub fn move_down(&mut self) {
@@ -314,6 +403,15 @@ impl App {
     }
 
     pub fn tree_left(&mut self) {
+        if self.navigation_view == NavigationViewMode::Keys {
+            let starts = self.key_group_starts();
+            let current = starts
+                .iter()
+                .rposition(|start| *start <= self.selected)
+                .unwrap_or(0);
+            self.selected = starts.get(current.saturating_sub(1)).copied().unwrap_or(0);
+            return;
+        }
         if self.navigation_view != NavigationViewMode::Tree || !self.query.trim().is_empty() {
             return;
         }
@@ -338,6 +436,16 @@ impl App {
     }
 
     pub fn tree_right(&mut self) {
+        if self.navigation_view == NavigationViewMode::Keys {
+            if let Some(next) = self
+                .key_group_starts()
+                .into_iter()
+                .find(|start| *start > self.selected)
+            {
+                self.selected = next;
+            }
+            return;
+        }
         if self.navigation_view != NavigationViewMode::Tree || !self.query.trim().is_empty() {
             return;
         }
@@ -393,6 +501,11 @@ impl App {
 
     fn selectable_len(&self) -> usize {
         match self.navigation_view {
+            NavigationViewMode::Keys => self
+                .key_groups()
+                .iter()
+                .map(|group| group.bindings.len())
+                .sum(),
             NavigationViewMode::List => self.filtered_bindings().len(),
             NavigationViewMode::Tree => self
                 .visible_tree_rows()
@@ -404,6 +517,16 @@ impl App {
 
     fn select_action(&mut self, action: &str) {
         match self.navigation_view {
+            NavigationViewMode::Keys => {
+                if let Some(index) = self
+                    .key_groups()
+                    .into_iter()
+                    .flat_map(|group| group.bindings)
+                    .position(|(binding, _)| binding.action == action)
+                {
+                    self.selected = index;
+                }
+            }
             NavigationViewMode::List => {
                 if let Some(index) = self
                     .filtered_bindings()
@@ -567,9 +690,13 @@ mod tests {
             "x".into(),
             "terminal".into(),
         );
-        app.set_navigation_view(NavigationViewMode::List);
+        app.set_navigation_view(NavigationViewMode::Tree);
         app.set_query("split");
         app.next_binding_view();
+        app.toggle_navigation_view();
+        assert_eq!(app.navigation_view, NavigationViewMode::List);
+        app.toggle_navigation_view();
+        assert_eq!(app.navigation_view, NavigationViewMode::Keys);
         app.toggle_navigation_view();
 
         assert_eq!(app.navigation_view, NavigationViewMode::Tree);
@@ -592,6 +719,7 @@ mod tests {
             "x".into(),
             "terminal".into(),
         );
+        app.set_navigation_view(NavigationViewMode::Tree);
         app.set_query("existing");
 
         let rows = app.visible_tree_rows();
@@ -628,6 +756,7 @@ mod tests {
             "x".into(),
             "terminal".into(),
         );
+        app.set_navigation_view(NavigationViewMode::Tree);
         let focus_left_index = app
             .visible_tree_rows()
             .iter()
@@ -644,5 +773,84 @@ mod tests {
             .visible_tree_rows()
             .iter()
             .any(|row| row.path == ["Panes", "Focus", "Focus left"]));
+    }
+
+    #[test]
+    fn keys_view_groups_follow_category_order_and_cover_filtered_bindings() {
+        let mut app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "x".into(),
+            "terminal".into(),
+        );
+        let order = app
+            .key_groups()
+            .iter()
+            .map(|group| group.category)
+            .collect::<Vec<_>>();
+        let mut sorted = order.clone();
+        sorted.sort();
+        assert_eq!(order, sorted);
+        app.set_query("split");
+        let grouped = app
+            .key_groups()
+            .iter()
+            .map(|group| group.bindings.len())
+            .sum::<usize>();
+        assert_eq!(grouped, app.filtered_bindings().len());
+    }
+
+    #[test]
+    fn keys_view_left_right_jump_between_groups_and_view_switch_keeps_selection() {
+        let mut app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "x".into(),
+            "terminal".into(),
+        );
+        let groups = app.key_groups();
+        let second_start = groups[0].bindings.len();
+        app.tree_right();
+        assert_eq!(app.selected, second_start);
+        assert_eq!(app.selected_binding().unwrap().category, groups[1].category);
+        app.move_down();
+        app.tree_left();
+        assert_eq!(app.selected, 0);
+        app.tree_left();
+        assert_eq!(app.selected, 0);
+
+        app.tree_right();
+        app.move_down();
+        let action = app.selected_binding().unwrap().action;
+        app.set_navigation_view(NavigationViewMode::List);
+        assert_eq!(app.selected_binding().unwrap().action, action);
+        app.set_navigation_view(NavigationViewMode::Keys);
+        assert_eq!(app.selected_binding().unwrap().action, action);
+    }
+
+    #[test]
+    fn keys_view_selection_is_clamped() {
+        let mut app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "x".into(),
+            "terminal".into(),
+        );
+        for _ in 0..500 {
+            app.move_down();
+            app.tree_right();
+        }
+        assert!(app.selected_binding().is_some());
+    }
+
+    #[test]
+    fn keys_view_query_selects_best_match() {
+        let mut app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "x".into(),
+            "terminal".into(),
+        );
+        app.set_query("next tab");
+        assert_eq!(app.selected_binding().unwrap().action, "next_tab");
+        app.pop_query_char();
+        app.push_query_char('b');
+        assert_eq!(app.selected_binding().unwrap().action, "next_tab");
     }
 }

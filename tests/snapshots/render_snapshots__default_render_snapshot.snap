@@ -1,6 +1,6 @@
 ---
 source: tests/render_snapshots.rs
-expression: output
+expression: "render(&app, 100, 28)"
 ---
 ┌ Herdr Pretty Which — mnemonic training wheels ───────────────────────────────────────────────────┐
 │┌ Session ───────────────────────────────────────────────────────────────────────────────────────┐│
@@ -8,14 +8,14 @@ expression: output
 ││Search › type to fuzzy-filter   Mode ALL   View TREE   Shown 47 / 47 bindings                   ││
 │└────────────────────────────────────────────────────────────────────────────────────────────────┘│
 │┌ Bindings · Tree ─────────────────────────────────────────────────────┐┌ Details ───────────────┐│
-││▾ Session                                                             ││Session                 ││
+││▾ Session                                                             ││Help                    ││
 ││  ▾ Core                                                              ││                        ││
-││    • Help  prefix+?  default                                         ││Type    group           ││
-││    • Settings  prefix+s  default                                     ││Path    Session         ││
-││    • Detach  prefix+q  default                                       ││State   expanded        ││
+││    • Help  prefix+?  default                                         ││Action  help            ││
+││    • Settings  prefix+s  default                                     ││Keys    prefix+?        ││
+││    • Detach  prefix+q  default                                       ││Default prefix+?        ││
 ││    • Reload config  prefix+shift+r  default                          ││                        ││
-││    • Open notification  prefix+o  default                            ││Use ←/→ to collapse,    ││
-││    • Remote image paste  ctrl+v  default                             ││expand, or enter the    ││
+││    • Open notification  prefix+o  default                            ││Open Herdr's canonical  ││
+││    • Remote image paste  ctrl+v  default                             ││key map.                ││
 ││▾ Workspaces                                                          │└────────────────────────┘│
 ││  ▾ Picker                                                            │┌ Categories ────────────┐│
 ││    • Workspace picker  prefix+w  default                             ││Core        6           ││

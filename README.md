@@ -5,20 +5,24 @@
 [![CI](https://github.com/ramarivera/herdr-pretty-which/actions/workflows/ci.yml/badge.svg)](https://github.com/ramarivera/herdr-pretty-which/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-![Herdr Pretty Which cover](assets/readme-cover.png)
+![Herdr Pretty Which popup in a live Herdr session](assets/readme-cover.png)
 
-A which-key style training overlay for [Herdr](https://herdr.dev), built as a Rust/Ratatui plugin.
+A which-key style keybinding popup for [Herdr](https://herdr.dev), built as a Rust/Ratatui plugin.
 
-It reads your real Herdr config, merges it with known defaults, and renders a searchable keybinding guide with list/tree modes, assigned/unassigned filtering, and contrast-safe selection styling. It does **not** invent bindings; values are marked as default, config, or unset based on the loaded config.
+It reads your real Herdr config, merges it with Herdr's defaults, and opens as a floating popup over your workspace. The default KEYS view lays bindings out in category columns with key badges: keys you press after the prefix show without `prefix+`, direct chords such as `alt+right` get their own color, and unset actions show `—`. TREE and LIST views keep the full detail panel and category counts. It does **not** invent bindings; every entry is marked default, config, or unset from the loaded config.
+
+The screenshot above and the demo below are VHS captures of a real Herdr session (`tapes/pretty-which.tape`).
+
+![Demo: filtering and switching views](assets/pretty-which-demo.gif)
 
 ## Install
 
-Plugin linking requires Herdr's plugin-capable line (`herdr >= 0.7.0`). If `herdr --version` reports an older version, use the snapshot command for now or upgrade Herdr before running `herdr plugin ...` commands.
+Requires `herdr >= 0.7.4`, the first release with popup plugin panes. On older Herdr, upgrade first or use `herdr-pretty-which --snapshot`.
 
 ```nu
 cargo install herdr-pretty-which --locked
 herdr plugin link cargo
-herdr plugin pane open --plugin ramarivera.pretty-which --entrypoint overlay --placement overlay --focus
+herdr plugin action invoke ramarivera.pretty-which.open
 ```
 
 You can also install the GitHub-managed plugin checkout directly. Herdr will
@@ -35,7 +39,7 @@ Use the checkout path only when developing the plugin itself:
 ```nu
 cargo install --path . --locked
 herdr plugin link .
-herdr plugin pane open --plugin ramarivera.pretty-which --entrypoint overlay --placement overlay --focus
+herdr plugin action invoke ramarivera.pretty-which.open
 ```
 
 ## Keybinding
@@ -44,23 +48,26 @@ Bind the plugin action through Herdr's command keybinding support:
 
 ```toml
 [[keys.command]]
-name = "Pretty Which"
 description = "open pretty which"
 key = "prefix+space"
 type = "plugin_action"
 command = "ramarivera.pretty-which.open"
 ```
 
+The popup opens at 90% × 80% of the terminal (see `[[panes]]` in `herdr-plugin.toml`).
+
 ## Controls
 
 - `↑/↓`: move selection
-- type: fuzzy filter
+- type: fuzzy filter (KEYS view jumps to the best match)
 - `Backspace`: edit filter
 - `Tab` / `Shift+Tab`: cycle `ALL` / `ASSIGNED` / `UNASSIGNED`
-- `Ctrl+T`: toggle `LIST` / `TREE`
-- `←/→`: collapse/expand or move through tree groups
+- `Ctrl+T`: cycle `KEYS` / `TREE` / `LIST` (remembered between runs)
+- `←/→`: jump between category groups (KEYS) or collapse/expand tree groups (TREE)
 - `Ctrl+[` / `Ctrl+]`: collapse/expand all tree groups
-- `Esc` / `q`: close
+- `Esc`: close; `q` also closes while the filter is empty
+
+The layout adapts to the popup size: KEYS drops columns and pages through them on narrow terminals, and TREE/LIST hide the side panels below about 92 columns.
 
 ## Testing
 
@@ -78,3 +85,10 @@ cargo test --test live_herdr_e2e -- --ignored
 ```
 
 The live test links the local plugin and verifies Herdr can see/invoke it. It does not stop your server or delete sessions.
+
+End-to-end popup test with [VHS](https://github.com/charmbracelet/vhs). It starts a throwaway Herdr server under a scratch `HOME`, opens the popup through the real keybinding, fails if the expected screens don't appear, and rewrites the README screenshot and demo:
+
+```nu
+$env.PRETTY_WHICH_VHS_ROOT = "/path/to/scratch/dir"
+vhs tapes/pretty-which.tape
+```
