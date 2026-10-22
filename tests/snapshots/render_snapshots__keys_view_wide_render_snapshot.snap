@@ -1,0 +1,38 @@
+---
+source: tests/render_snapshots.rs
+expression: "render(&app, 160, 34)"
+---
+┌ Herdr Pretty Which — mnemonic training wheels ───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Herdr Pretty Which  │  prefix ctrl+b                                                                       KEYS · ALL · 47 / 47 shown   Press <esc> to close │
+│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
+│ ⌕ Filter keys...                                                                                                x  after prefix    alt+x  direct    —  unset │
+│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
+│ ◆ CORE  6                                           │ ▭ TABS  6 (cont.)                                │ ◫ PANES  19 (cont.)                                 │
+│ ├─  ?        Help                                   │ ├─  shift+t    Rename tab                        │ ├─  k  Navigate up                                  │
+│ ├─  s        Settings                               │ ├─  p          Previous tab                      │ └─  l  Navigate right                               │
+│ ├─  q        Detach                                 │ ├─  n          Next tab                          │                                                     │
+│ ├─  shift+r  Reload config                          │ ├─  1..9       Switch tab                        │ ❯ AGENTS  3                                         │
+│ ├─  o        Open notification                      │ └─  shift+x    Close tab                         │ ├─  —  Previous agent                               │
+│ └─  ctrl+v   Remote image paste                     │                                                  │ ├─  —  Next agent                                   │
+│                                                     │ ◫ PANES  19                                      │ └─  —  Focus agent                                  │
+│ ▦ WORKSPACES  13                                    │ ├─  shift+p    Rename pane                       │                                                     │
+│ ├─  w        Workspace picker                       │ ├─  e          Edit scrollback                   │                                                     │
+│ ├─  g        Goto                                   │ ├─  h          Focus left                        │                                                     │
+│ ├─  shift+n  New workspace                          │ ├─  j          Focus down                        │                                                     │
+│ ├─  shift+g  New worktree                           │ ├─  k          Focus up                          │                                                     │
+│ ├─  —        Open worktree                          │ ├─  l          Focus right                       │                                                     │
+│ ├─  —        Remove worktree                        │ ├─  tab        Next pane                         │                                                     │
+│ ├─  shift+w  Rename workspace                       │ ├─  shift+tab  Previous pane                     │                                                     │
+│ ├─  shift+d  Close workspace                        │ ├─  —          Last pane                         │                                                     │
+│ ├─  —        Previous workspace                     │ ├─  v          Split vertical                    │                                                     │
+│ ├─  —        Next workspace                         │ ├─  minus      Split horizontal                  │                                                     │
+│ ├─  —        Switch workspace                       │ ├─  x          Close pane                        │                                                     │
+│ ├─  up       Navigate workspace up                  │ ├─  z          Zoom                              │                                                     │
+│ └─  down     Navigate workspace down                │ ├─  r          Resize mode                       │                                                     │
+│                                                     │ ├─  b          Toggle sidebar                    │                                                     │
+│ ▭ TABS  6                                           │ ├─  h          Navigate left                     │                                                     │
+│ ├─  c        New tab                                │ ├─  j          Navigate down                     │                                                     │
+│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
+│ Help  prefix+?  default  Open Herdr's canonical key map.                                                                                                     │
+│  ↑↓  move   ←→  group   type  filter   tab  mode   ctrl+t  view   esc  close                     fixture/config.toml · terminal · 38 assigned · 9 unassigned │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

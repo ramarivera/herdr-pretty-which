@@ -1,6 +1,6 @@
 [package]
 name = "herdr-pretty-which"
-version = "0.1.5"
+version = "0.2.0"
 edition = "2021"
 description = "A tasteful which-key style keybinding overlay for Herdr"
 license = "MIT"
@@ -9,7 +9,7 @@ homepage = "https://github.com/ramarivera/herdr-pretty-which"
 readme = "README.md"
 keywords = ["herdr", "terminal", "tui", "which-key", "ratatui"]
 categories = ["command-line-utilities"]
-exclude = [".depot/", ".github/", "AGENTS.md"]
+exclude = [".depot/", ".github/", "AGENTS.md", "tapes/", "assets/*.gif"]
 
 [[bin]]
 name = "herdr-pretty-which"

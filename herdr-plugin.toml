@@ -1,9 +1,9 @@
-# Herdr plugin manifest for the local development build. Requires Herdr >= 0.7.0 plugin support.
+# Herdr plugin manifest for the local development build. Requires Herdr >= 0.7.4 for popup plugin panes.
 # Cross-reference: README.md and cargo/herdr-plugin.toml
 id = "ramarivera.pretty-which"
 name = "Pretty Which"
-version = "0.1.5"
-min_herdr_version = "0.7.0"
+version = "0.2.0"
+min_herdr_version = "0.7.4"
 description = "A tasteful which-key style training overlay for Herdr keybindings."
 platforms = ["linux", "macos"]
 
@@ -15,10 +15,14 @@ platforms = ["linux", "macos"]
 id = "open"
 title = "Open pretty which"
 contexts = ["workspace", "tab", "pane", "global"]
-command = ["herdr", "plugin", "pane", "open", "--plugin", "ramarivera.pretty-which", "--entrypoint", "overlay", "--placement", "overlay", "--focus"]
+command = ["herdr", "plugin", "pane", "open", "--plugin", "ramarivera.pretty-which", "--entrypoint", "overlay", "--focus"]
 
 [[panes]]
 id = "overlay"
 title = "Pretty Which"
-placement = "overlay"
+# A session-modal popup sized like a which-key panel; the manifest owns the
+# placement and size so the open action does not repeat them.
+placement = "popup"
+width = "90%"
+height = "80%"
 command = ["target/release/herdr-pretty-which"]

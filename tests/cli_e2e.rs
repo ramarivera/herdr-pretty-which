@@ -22,7 +22,39 @@ fn snapshot_cli_reads_config_and_renders_custom_key() {
         .assert()
         .success()
         .stdout(predicate::str::contains("Herdr Pretty Which"))
+        .stdout(predicate::str::contains("KEYS · ALL"))
         .stdout(predicate::str::contains("ctrl+alt+n"));
+}
+
+#[test]
+fn snapshot_cli_shows_configured_prefix_and_supports_views() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = dir.path().join("config.toml");
+    fs::write(&config, "[keys]\nprefix = \"ctrl+a\"\n").unwrap();
+
+    for (view, marker) in [
+        ("keys", "prefix ctrl+a"),
+        ("tree", "Bindings · Tree"),
+        ("list", "Bindings · List"),
+    ] {
+        Command::cargo_bin("herdr-pretty-which")
+            .unwrap()
+            .env("HERDR_BIN_PATH", "/nonexistent/herdr")
+            .args([
+                "--snapshot",
+                "--width",
+                "140",
+                "--height",
+                "30",
+                "--view",
+                view,
+            ])
+            .arg("--config")
+            .arg(&config)
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(marker));
+    }
 }
 
 #[test]
@@ -74,4 +106,23 @@ fn plugin_manifests_are_valid_toml_and_target_expected_commands() {
         cargo["actions"][0]["command"].as_array().unwrap(),
         dev["actions"][0]["command"].as_array().unwrap()
     );
+
+    let crate_version = env!("CARGO_PKG_VERSION");
+    for manifest in [&dev, &cargo] {
+        assert_eq!(manifest["version"].as_str(), Some(crate_version));
+        assert_eq!(manifest["min_herdr_version"].as_str(), Some("0.7.4"));
+        let pane = &manifest["panes"][0];
+        assert_eq!(pane["placement"].as_str(), Some("popup"));
+        assert!(pane["width"].as_str().is_some_and(|w| w.ends_with('%')));
+        assert!(pane["height"].as_str().is_some_and(|h| h.ends_with('%')));
+        let command = manifest["actions"][0]["command"].as_array().unwrap();
+        assert!(
+            !command
+                .iter()
+                .any(|arg| arg.as_str() == Some("--placement")),
+            "the manifest pane owns placement and size"
+        );
+    }
+    assert_eq!(dev["panes"][0]["width"], cargo["panes"][0]["width"]);
+    assert_eq!(dev["panes"][0]["height"], cargo["panes"][0]["height"]);
 }

@@ -1,4 +1,5 @@
 use crate::app::{App, NavigationViewMode, TreeRow, TreeRowKind};
+use crate::keys_view::render_keys_view;
 use crate::model::{Binding, BindingSource, BindingStatus, Category};
 use crate::theme::Palette;
 use anyhow::Result;
@@ -51,6 +52,11 @@ fn render_app_with_embed_mode(
         inner
     };
 
+    if app.navigation_view == NavigationViewMode::Keys {
+        render_keys_view(frame, content_area, app, palette);
+        return;
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -62,21 +68,30 @@ fn render_app_with_embed_mode(
 
     render_header(frame, chunks[0], app, palette);
 
-    let body = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(72), Constraint::Length(36)])
-        .split(chunks[1]);
+    // Narrow popups drop the Details/Categories side column so the binding
+    // list keeps a readable width; the header still carries the counts.
+    if content_area.width < SIDE_PANEL_MIN_WIDTH {
+        render_bindings(frame, chunks[1], app, palette);
+    } else {
+        let body = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(72), Constraint::Length(36)])
+            .split(chunks[1]);
 
-    let side = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Min(10), Constraint::Length(8)])
-        .split(body[1]);
+        let side = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(10), Constraint::Length(8)])
+            .split(body[1]);
 
-    render_bindings(frame, body[0], app, palette);
-    render_details(frame, side[0], app, palette);
-    render_categories(frame, side[1], app, palette);
+        render_bindings(frame, body[0], app, palette);
+        render_details(frame, side[0], app, palette);
+        render_categories(frame, side[1], app, palette);
+    }
     render_footer(frame, chunks[2], palette);
 }
+
+/// Content width below which LIST/TREE views hide the side panels.
+const SIDE_PANEL_MIN_WIDTH: u16 = 92;
 
 pub fn render_to_test_backend(
     app: &App,
@@ -204,6 +219,7 @@ fn render_bindings(frame: &mut Frame<'_>, area: Rect, app: &App, palette: Palett
     match app.navigation_view {
         NavigationViewMode::List => render_list_bindings(frame, area, app, palette),
         NavigationViewMode::Tree => render_tree_bindings(frame, area, app, palette),
+        NavigationViewMode::Keys => render_keys_view(frame, area, app, palette),
     }
 }
 
@@ -548,11 +564,12 @@ mod tests {
 
     #[test]
     fn render_contains_core_labels() {
-        let app = App::new(
+        let mut app = App::new(
             effective_bindings(&KeysSection::default()),
             "config.toml".into(),
             "terminal".into(),
         );
+        app.set_navigation_view(NavigationViewMode::Tree);
         let text =
             render_to_string(&app, Palette::from_theme(&ThemeConfig::default()), 100, 30).unwrap();
         assert!(text.contains("Herdr Pretty Which"));
@@ -580,11 +597,12 @@ mod tests {
 
     #[test]
     fn herdr_embedded_mode_does_not_draw_outer_border() {
-        let app = App::new(
+        let mut app = App::new(
             effective_bindings(&KeysSection::default()),
             "config.toml".into(),
             "terminal".into(),
         );
+        app.set_navigation_view(NavigationViewMode::Tree);
         let palette = Palette::from_theme(&ThemeConfig::default());
         let backend = render_embedded_to_test_backend(&app, palette, 100, 30).unwrap();
         let first_line = (0..100)
@@ -601,6 +619,7 @@ mod tests {
             "config.toml".into(),
             "catppuccin-latte".into(),
         );
+        app.set_navigation_view(NavigationViewMode::Tree);
         app.set_query("workspace picker");
         let palette = Palette::from_theme(&ThemeConfig {
             name: Some("catppuccin-latte".to_string()),
@@ -630,5 +649,137 @@ mod tests {
                 cell.style().fg
             );
         }
+    }
+
+    fn embedded_text(app: &App, width: u16, height: u16) -> String {
+        let backend = render_embedded_to_test_backend(
+            app,
+            Palette::from_theme(&ThemeConfig::default()),
+            width,
+            height,
+        )
+        .unwrap();
+        buffer_to_string(backend.buffer().area, backend.buffer())
+    }
+
+    #[test]
+    fn keys_title_keeps_prefix_visible_in_standard_popup_widths() {
+        // A 90%-wide popup in an 80-column terminal is about 72 cells.
+        let app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "config.toml".into(),
+            "terminal".into(),
+        )
+        .with_prefix(Some("ctrl+b".into()));
+        for width in [60u16, 72, 80] {
+            let text = embedded_text(&app, width, 24);
+            let title = text.lines().next().unwrap();
+            assert!(
+                title.contains("prefix ctrl+b"),
+                "prefix hidden at width {width}: {title:?}"
+            );
+            assert!(title.contains("KEYS"), "view label hidden at width {width}");
+        }
+    }
+
+    #[test]
+    fn keys_view_is_default_and_shows_prefix_columns_and_badges() {
+        let app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "config.toml".into(),
+            "terminal".into(),
+        )
+        .with_prefix(Some("ctrl+b".into()));
+        assert_eq!(app.navigation_view, NavigationViewMode::Keys);
+        let text = embedded_text(&app, 160, 32);
+        let first_line = text.lines().next().unwrap();
+        assert!(first_line.contains("Herdr Pretty Which"));
+        assert!(first_line.contains("prefix ctrl+b"));
+        assert!(first_line.contains("KEYS · ALL"));
+        for header in ["CORE", "WORKSPACES", "TABS", "PANES"] {
+            assert!(text.contains(header), "missing {header} column");
+        }
+        let split_line = text
+            .lines()
+            .find(|line| line.contains("Split vertical"))
+            .unwrap();
+        assert!(split_line.contains(" v "), "prefix badge strips prefix+");
+        assert!(!split_line.contains("prefix+v"));
+        assert!(text.contains("after prefix"));
+        assert!(!text.contains("Session"), "KEYS view has no Session panel");
+    }
+
+    #[test]
+    fn keys_view_never_shows_keys_absent_from_bindings() {
+        let app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "config.toml".into(),
+            "terminal".into(),
+        );
+        let text = embedded_text(&app, 160, 40);
+        for invented in [
+            "Run agent",
+            "Restart agent",
+            "Go to tab #",
+            "Show this help",
+        ] {
+            assert!(
+                !text.contains(invented),
+                "rendered invented entry {invented}"
+            );
+        }
+    }
+
+    #[test]
+    fn keys_view_drops_to_fewer_columns_and_pages_when_narrow() {
+        let mut app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "config.toml".into(),
+            "terminal".into(),
+        );
+        let wide = embedded_text(&app, 180, 40);
+        assert!(!wide.contains("page "));
+        let narrow = embedded_text(&app, 50, 20);
+        assert!(narrow.contains("page 1/"));
+        assert!(
+            !narrow.contains("after prefix"),
+            "legend hidden when compact"
+        );
+        for _ in 0..200 {
+            app.move_down();
+        }
+        let last_page = embedded_text(&app, 50, 20);
+        assert!(!last_page.contains("page 1/"), "selection drives paging");
+    }
+
+    #[test]
+    fn keys_view_filter_keeps_category_grouping_and_details() {
+        let app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "config.toml".into(),
+            "terminal".into(),
+        )
+        .snapshot("split vertical");
+        let text = embedded_text(&app, 140, 24);
+        assert!(text.contains("PANES"));
+        assert!(!text.contains("TABS"), "groups without matches are omitted");
+        assert!(text.contains("Split vertical"));
+        let details = text.lines().rev().nth(1).unwrap();
+        assert!(details.contains("prefix+v"), "details line shows full keys");
+        assert!(details.contains("default"), "details line shows origin");
+    }
+
+    #[test]
+    fn tree_view_hides_side_panels_when_narrow() {
+        let mut app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "config.toml".into(),
+            "terminal".into(),
+        );
+        app.set_navigation_view(NavigationViewMode::Tree);
+        assert!(embedded_text(&app, 120, 30).contains("Details"));
+        let narrow = embedded_text(&app, 70, 30);
+        assert!(!narrow.contains("Details"));
+        assert!(narrow.contains("Bindings · Tree"));
     }
 }

@@ -1,0 +1,26 @@
+---
+source: tests/render_snapshots.rs
+expression: "render(&app, 60, 22)"
+---
+┌ Herdr Pretty Which — mnemonic training wheels ───────────┐
+│ prefix ctrl+b                       KEYS · ALL · page 1/5│
+│──────────────────────────────────────────────────────────│
+│ ⌕ Filter keys...                                         │
+│──────────────────────────────────────────────────────────│
+│ ◆ CORE  6                                                │
+│ ├─  ?        Help                                        │
+│ ├─  s        Settings                                    │
+│ ├─  q        Detach                                      │
+│ ├─  shift+r  Reload config                               │
+│ ├─  o        Open notification                           │
+│ └─  ctrl+v   Remote image paste                          │
+│                                                          │
+│ ▦ WORKSPACES  13                                         │
+│ ├─  w        Workspace picker                            │
+│ ├─  g        Goto                                        │
+│ ├─  shift+n  New workspace                               │
+│ ├─  shift+g  New worktree                                │
+│──────────────────────────────────────────────────────────│
+│ Help  prefix+?  default  Open Herdr's canonical key map. │
+│ ↑↓  ←→  nav  tab  mode  ^t  view  esc  close             │
+└──────────────────────────────────────────────────────────┘

@@ -1,6 +1,6 @@
 ---
 source: tests/render_snapshots.rs
-expression: output
+expression: "render(&app, 100, 28)"
 ---
 ┌ Herdr Pretty Which — mnemonic training wheels ───────────────────────────────────────────────────┐
 │┌ Session ───────────────────────────────────────────────────────────────────────────────────────┐│

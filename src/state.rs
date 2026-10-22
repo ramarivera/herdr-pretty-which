@@ -9,7 +9,9 @@ const STATE_PATH_ENV: &str = "HERDR_PRETTY_WHICH_STATE_PATH";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppState {
-    #[serde(default = "default_navigation_view")]
+    /// Stored as `view`. State files from 0.1.x used `navigation_view` and
+    /// predate the KEYS view, so they are ignored and the KEYS default wins.
+    #[serde(rename = "view", default = "default_navigation_view")]
     pub navigation_view: NavigationViewMode,
 }
 
@@ -69,7 +71,7 @@ fn state_path() -> Option<PathBuf> {
 }
 
 const fn default_navigation_view() -> NavigationViewMode {
-    NavigationViewMode::Tree
+    NavigationViewMode::Keys
 }
 
 #[cfg(test)]
@@ -77,10 +79,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn missing_state_defaults_to_tree() {
+    fn missing_state_defaults_to_keys() {
         let dir = tempfile::tempdir().unwrap();
         let state = load_state_from_path(dir.path().join("missing.toml")).unwrap();
-        assert_eq!(state.navigation_view, NavigationViewMode::Tree);
+        assert_eq!(state.navigation_view, NavigationViewMode::Keys);
+    }
+
+    #[test]
+    fn legacy_state_without_keys_view_falls_back_to_keys() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.toml");
+        fs::write(&path, "navigation_view = \"tree\"\n").unwrap();
+        let state = load_state_from_path(&path).unwrap();
+        assert_eq!(state.navigation_view, NavigationViewMode::Keys);
     }
 
     #[test]
@@ -95,5 +106,8 @@ mod tests {
 
         let loaded = load_state_from_path(&path).unwrap();
         assert_eq!(loaded.navigation_view, NavigationViewMode::List);
+        assert!(fs::read_to_string(&path)
+            .unwrap()
+            .contains("view = \"list\""));
     }
 }

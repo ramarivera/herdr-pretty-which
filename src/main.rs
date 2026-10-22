@@ -6,12 +6,12 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use herdr_pretty_which::config::load_herdr_config;
-use herdr_pretty_which::discover::discover_default_config_actions;
+use herdr_pretty_which::discover::discover_default_config;
 use herdr_pretty_which::model::effective_bindings_with_discovery;
 use herdr_pretty_which::render::{render_app, render_to_string};
 use herdr_pretty_which::state::{load_state, save_state, AppState};
 use herdr_pretty_which::theme::Palette;
-use herdr_pretty_which::App;
+use herdr_pretty_which::{App, NavigationViewMode};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::{self, IsTerminal};
@@ -39,6 +39,27 @@ struct Args {
     /// Snapshot height.
     #[arg(long, default_value_t = 32)]
     height: u16,
+
+    /// Starting view. Interactive mode otherwise restores the last used view.
+    #[arg(long, value_enum)]
+    view: Option<ViewArg>,
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+enum ViewArg {
+    Keys,
+    Tree,
+    List,
+}
+
+impl From<ViewArg> for NavigationViewMode {
+    fn from(view: ViewArg) -> Self {
+        match view {
+            ViewArg::Keys => Self::Keys,
+            ViewArg::Tree => Self::Tree,
+            ViewArg::List => Self::List,
+        }
+    }
 }
 
 /// Compare discovered Herdr actions against the modeled SPECS table and return
@@ -66,7 +87,14 @@ fn main() -> Result<()> {
         .clone()
         .unwrap_or_else(|| "terminal".to_string());
     let palette = Palette::from_theme(&source.config.theme);
-    let discovered = discover_default_config_actions();
+    let discovery = discover_default_config();
+    let prefix = source
+        .config
+        .keys
+        .prefix
+        .clone()
+        .or(discovery.prefix.clone());
+    let discovered = discovery.actions;
     let unmodeled = unmodeled_discovered_actions(&discovered);
     if !unmodeled.is_empty() {
         eprintln!(
@@ -76,9 +104,12 @@ fn main() -> Result<()> {
         );
     }
     let bindings = effective_bindings_with_discovery(&source.config.keys, Some(&discovered));
-    let mut app = App::new(bindings, display_path(&source.path), theme_name);
+    let mut app = App::new(bindings, display_path(&source.path), theme_name).with_prefix(prefix);
 
     if args.snapshot || !io::stdout().is_terminal() {
+        if let Some(view) = args.view {
+            app.set_navigation_view(view.into());
+        }
         let app = app.snapshot(args.query);
         println!(
             "{}",
@@ -87,9 +118,13 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    match load_state() {
-        Ok(state) => app.set_navigation_view(state.navigation_view),
-        Err(err) => eprintln!("herdr-pretty-which: ignoring unreadable state: {err:#}"),
+    match (args.view, load_state()) {
+        (Some(view), _) => app.set_navigation_view(view.into()),
+        (None, Ok(state)) => app.set_navigation_view(state.navigation_view),
+        (None, Err(err)) => eprintln!("herdr-pretty-which: ignoring unreadable state: {err:#}"),
+    }
+    if !args.query.is_empty() {
+        app.set_query(args.query);
     }
 
     run_interactive(app, palette)
@@ -115,7 +150,9 @@ fn run_interactive(mut app: App, palette: Palette) -> Result<()> {
         if event::poll(std::time::Duration::from_millis(200))? {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
-                    KeyCode::Esc | KeyCode::Char('q') => break,
+                    KeyCode::Esc => break,
+                    // `q` closes only with an empty filter so it stays typeable.
+                    KeyCode::Char('q') if app.query.is_empty() => break,
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
                     KeyCode::Down => app.move_down(),
                     KeyCode::Up => app.move_up(),

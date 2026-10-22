@@ -46,6 +46,9 @@ const NON_ACTION_KEYS: &[&str] = &[
     "tabs",
     "workspaces",
     "agents",
+    "description",
+    "width",
+    "height",
 ];
 
 /// Discover Herdr's bindable actions by running `herdr --default-config`.
@@ -54,14 +57,59 @@ const NON_ACTION_KEYS: &[&str] = &[
 /// on any failure (binary missing, non-zero exit, non-UTF-8 output) so callers
 /// can treat discovery as purely additive.
 pub fn discover_default_config_actions() -> BTreeMap<String, Vec<String>> {
+    discover_default_config().actions
+}
+
+/// Run `herdr --default-config` once and return both the bindable actions and
+/// the default prefix key. Same best-effort contract as
+/// [`discover_default_config_actions`]: failures yield empty results.
+pub fn discover_default_config() -> DiscoveredConfig {
     let output = match Command::new(herdr_bin()).arg("--default-config").output() {
         Ok(output) if output.status.success() => output,
-        _ => return BTreeMap::new(),
+        _ => return DiscoveredConfig::default(),
     };
     let Ok(text) = String::from_utf8(output.stdout) else {
-        return BTreeMap::new();
+        return DiscoveredConfig::default();
     };
-    parse_default_config(&text)
+    DiscoveredConfig {
+        actions: parse_default_config(&text),
+        prefix: parse_default_prefix(&text),
+    }
+}
+
+/// Actions and prefix discovered from `herdr --default-config`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DiscoveredConfig {
+    pub actions: BTreeMap<String, Vec<String>>,
+    pub prefix: Option<String>,
+}
+
+/// Read the commented `# prefix = "…"` reference line from the `[keys]`
+/// section. Pure function for testability.
+pub fn parse_default_prefix(text: &str) -> Option<String> {
+    let mut in_keys = false;
+    for raw in text.lines() {
+        let line = raw.trim_start();
+        if let Some(header) = line.strip_prefix('[') {
+            in_keys = header.trim_start_matches('[').trim() == "keys]";
+            continue;
+        }
+        if !in_keys {
+            continue;
+        }
+        let Some(rest) = line.strip_prefix('#') else {
+            continue;
+        };
+        let rest = rest.trim();
+        let Some(eq) = rest.find('=') else {
+            continue;
+        };
+        if rest[..eq].trim() != "prefix" {
+            continue;
+        }
+        return parse_binding_value(rest[eq + 1..].trim()).and_then(|keys| keys.into_iter().next());
+    }
+    None
 }
 
 /// Parse the `[keys]` section of `herdr --default-config` output into a map of
@@ -90,6 +138,12 @@ pub fn parse_default_config(text: &str) -> BTreeMap<String, Vec<String>> {
             continue;
         };
         let rest = rest.trim();
+        // Commented example headers such as `# [[keys.command]]` start an
+        // example sub-section whose fields are not actions.
+        if let Some(header) = rest.strip_prefix('[') {
+            in_keys = header.trim_start_matches('[').trim() == "keys]";
+            continue;
+        }
         let Some(eq) = rest.find('=') else {
             continue;
         };
@@ -200,6 +254,21 @@ mod tests {
             !actions.contains_key("sidebar_width"),
             "non-[keys] sections are skipped"
         );
+    }
+
+    #[test]
+    fn parses_default_prefix_from_keys_section_only() {
+        assert_eq!(parse_default_prefix(FIXTURE), Some("ctrl+b".to_string()));
+        assert_eq!(parse_default_prefix("[ui]\n# prefix = \"ctrl+a\"\n"), None);
+        assert_eq!(parse_default_prefix(""), None);
+    }
+
+    #[test]
+    fn commented_command_examples_are_not_actions() {
+        let actions = parse_default_config(
+            "[keys]\n# help = \"prefix+?\"\n# [[keys.command]]\n# key = \"prefix+t\"\n# type = \"popup\"\n# width = \"80%\"\n# height = \"80%\"\n",
+        );
+        assert_eq!(actions.keys().collect::<Vec<_>>(), vec!["help"]);
     }
 
     #[test]
