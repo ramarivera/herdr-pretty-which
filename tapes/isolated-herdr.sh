@@ -5,13 +5,15 @@
 # Cross-reference: tapes/pretty-which.tape
 
 repo="$(pwd)"
-root="${PRETTY_WHICH_VHS_ROOT:?set PRETTY_WHICH_VHS_ROOT to a scratch directory}"
+scratch="${PRETTY_WHICH_VHS_ROOT:?set PRETTY_WHICH_VHS_ROOT to a scratch directory}"
 export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
 export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}"
 export PATH="$CARGO_HOME/bin:$PATH"
 
-rm -rf "$root"
-mkdir -p "$root/home/.config/herdr" "$root/run"
+# Each run gets its own directory so nothing already in the scratch dir is touched.
+mkdir -p "$scratch"
+root="$(mktemp -d "$scratch/run.XXXXXX")"
+mkdir -p "$root/home/.config/herdr" "$root/run" "$root/pretty-which"
 chmod 700 "$root/run"
 # Herdr's Unix sockets live under the config dir and must fit sun_path
 # (108 bytes), so reach the scratch root through a short symlink.
@@ -44,5 +46,6 @@ TOML
 
 (cd "$repo" && cargo build --release --quiet) || return 1
 herdr plugin link "$repo" >"$root/link.log" 2>&1 || cat "$root/link.log"
-cd "$root"
+# Herdr names the workspace after the cwd, so keep it stable for screenshots.
+cd "$root/pretty-which"
 clear

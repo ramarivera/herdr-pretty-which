@@ -217,32 +217,33 @@ fn render_title(
     page: usize,
     pages: usize,
 ) {
-    let mut left = vec![
+    let title = vec![
         Span::styled(
             format!(" {}", app.title),
             Style::default()
                 .fg(palette.warning)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled("  │  ", Style::default().fg(palette.panel_alt)),
+        Span::styled("  │ ", Style::default().fg(palette.panel_alt)),
     ];
-    match app.prefix.as_deref() {
-        Some(prefix) => {
-            left.push(Span::styled("prefix ", Style::default().fg(palette.muted)));
-            left.push(Span::styled(
+    let context = match app.prefix.as_deref() {
+        Some(prefix) => vec![
+            Span::styled(" prefix ", Style::default().fg(palette.muted)),
+            Span::styled(
                 prefix.to_string(),
                 Style::default()
                     .fg(palette.accent)
                     .add_modifier(Modifier::BOLD),
-            ));
-        }
-        None => left.push(Span::styled(
-            "Herdr keybindings",
+            ),
+        ],
+        None => vec![Span::styled(
+            " Herdr keybindings",
             Style::default().fg(palette.text),
-        )),
-    }
+        )],
+    };
 
-    let mut right = vec![
+    let view = vec![
+        Span::raw("  "),
         Span::styled(
             app.navigation_view.label(),
             Style::default()
@@ -256,39 +257,55 @@ fn render_title(
                 .fg(palette.accent)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(
-            format!(
-                " · {} / {} shown",
-                app.filtered_bindings().len(),
-                app.total_count()
-            ),
-            Style::default().fg(palette.muted),
-        ),
     ];
-    if pages > 1 {
-        right.push(Span::styled(
+    let counts = vec![Span::styled(
+        format!(
+            " · {} / {} shown",
+            app.filtered_bindings().len(),
+            app.total_count()
+        ),
+        Style::default().fg(palette.muted),
+    )];
+    let page_info: Vec<Span<'_>> = if pages > 1 {
+        vec![Span::styled(
             format!(" · page {}/{}", page + 1, pages),
             Style::default().fg(palette.warning),
-        ));
-    }
-    if area.width >= COMPACT_WIDTH {
-        right.push(Span::styled(
-            "   Press <esc> to close ",
-            Style::default().fg(palette.muted),
-        ));
-    }
+        )]
+    } else {
+        Vec::new()
+    };
+    let close = vec![Span::styled(
+        "   Press <esc> to close ",
+        Style::default().fg(palette.muted),
+    )];
 
-    let right_line = Line::from(right);
-    let right_width = (right_line.width() as u16).min(area.width);
+    // The prefix is required context because badges omit `prefix+`. Optional
+    // parts drop in order: close hint, counts, plugin title, page number.
+    let none = Vec::new();
+    let candidates: [[&Vec<Span<'_>>; 4]; 5] = [
+        [&title, &counts, &page_info, &close],
+        [&title, &counts, &page_info, &none],
+        [&title, &none, &page_info, &none],
+        [&none, &none, &page_info, &none],
+        [&title, &none, &none, &none],
+    ];
+    let (left, right) = candidates
+        .iter()
+        .map(|[title, counts, page_info, close]| {
+            let left = [title.as_slice(), &context].concat();
+            let right = [view.as_slice(), counts, page_info, close].concat();
+            (Line::from(left), Line::from(right))
+        })
+        .find(|(left, right)| left.width() + right.width() <= area.width as usize)
+        .unwrap_or_else(|| (Line::from(context.clone()), Line::from(view.clone())));
+
+    let right_width = (right.width() as u16).min(area.width);
     let split = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Min(0), Constraint::Length(right_width)])
         .split(area);
-    frame.render_widget(Paragraph::new(Line::from(left)), split[0]);
-    frame.render_widget(
-        Paragraph::new(right_line).alignment(Alignment::Right),
-        split[1],
-    );
+    frame.render_widget(Paragraph::new(left), split[0]);
+    frame.render_widget(Paragraph::new(right).alignment(Alignment::Right), split[1]);
 }
 
 fn render_filter(frame: &mut Frame<'_>, area: Rect, app: &App, palette: Palette) {

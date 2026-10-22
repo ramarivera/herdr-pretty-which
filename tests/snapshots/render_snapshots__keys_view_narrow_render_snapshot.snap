@@ -3,7 +3,7 @@ source: tests/render_snapshots.rs
 expression: "render(&app, 60, 22)"
 ---
 ┌ Herdr Pretty Which — mnemonic training wheels ───────────┐
-│ Herdr Pretty Which  KEYS · ALL · 47 / 47 shown · page 1/5│
+│ prefix ctrl+b                       KEYS · ALL · page 1/5│
 │──────────────────────────────────────────────────────────│
 │ ⌕ Filter keys...                                         │
 │──────────────────────────────────────────────────────────│

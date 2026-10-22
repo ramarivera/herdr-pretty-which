@@ -663,6 +663,26 @@ mod tests {
     }
 
     #[test]
+    fn keys_title_keeps_prefix_visible_in_standard_popup_widths() {
+        // A 90%-wide popup in an 80-column terminal is about 72 cells.
+        let app = App::new(
+            effective_bindings(&KeysSection::default()),
+            "config.toml".into(),
+            "terminal".into(),
+        )
+        .with_prefix(Some("ctrl+b".into()));
+        for width in [60u16, 72, 80] {
+            let text = embedded_text(&app, width, 24);
+            let title = text.lines().next().unwrap();
+            assert!(
+                title.contains("prefix ctrl+b"),
+                "prefix hidden at width {width}: {title:?}"
+            );
+            assert!(title.contains("KEYS"), "view label hidden at width {width}");
+        }
+    }
+
+    #[test]
     fn keys_view_is_default_and_shows_prefix_columns_and_badges() {
         let app = App::new(
             effective_bindings(&KeysSection::default()),
