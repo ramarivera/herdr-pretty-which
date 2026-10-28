@@ -37,7 +37,9 @@ pub fn ensure_readable(buffer: &mut Buffer, palette: Palette) {
                 cell.fg = Color::Magenta;
             } else if cell.fg == palette.danger {
                 cell.fg = Color::Red;
-            } else {
+            } else if !matches!(cell.fg, Color::Blue | Color::Magenta | Color::Red) {
+                // Interactive rendering may normalize the buffer again after
+                // adding its footer. Already-normalized accents must survive.
                 if cell.fg == palette.panel_alt {
                     cell.modifier.insert(Modifier::DIM);
                 }

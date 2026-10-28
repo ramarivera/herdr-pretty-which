@@ -212,3 +212,29 @@ fn selection_prefers_a_chromatic_theme_accent_but_preserves_monochrome_themes() 
         Color::Rgb(170, 170, 170)
     );
 }
+
+#[test]
+fn repeated_contrast_passes_keep_terminal_accents_and_selection() {
+    let palette = Palette::from_theme(&ThemeConfig {
+        name: Some("catppuccin".into()),
+        custom: ThemeCustom {
+            text: Some("reset".into()),
+            selection_bg: Some("#6e86ad".into()),
+            ..Default::default()
+        },
+    });
+    for view in [
+        NavigationViewMode::Keys,
+        NavigationViewMode::Tree,
+        NavigationViewMode::List,
+    ] {
+        let backend = render_embedded_to_test_backend(&app(view), palette, 120, 36).unwrap();
+        let mut normalized = backend.buffer().clone();
+        herdr_pretty_which::theme::ensure_readable(&mut normalized, palette);
+        assert_eq!(
+            &normalized,
+            backend.buffer(),
+            "normalization must be idempotent in {view:?}"
+        );
+    }
+}

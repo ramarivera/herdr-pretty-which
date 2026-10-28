@@ -15,12 +15,12 @@ The recording below shows the earlier guide. In this beta, press `Ctrl+F` before
 
 ## Install the beta
 
-Version `0.3.0-beta.2` combines the guide, launcher, and shell for testing. Herdr Palette remains supported as a separate plugin while this beta is evaluated.
+Version `0.3.0-beta.3` combines the guide, launcher, and shell for testing. Herdr Palette remains supported as a separate plugin while this beta is evaluated.
 
 Requires Herdr 0.7.4 or newer for popup plugin panes. The beta terminal flows were tested against Herdr `0.9.4-preview.2026-10-14-fbd2ae23927f`. Install the crate and link its manifest:
 
 ```nu
-cargo install herdr-pretty-which --version 0.3.0-beta.2 --locked
+cargo install herdr-pretty-which --version 0.3.0-beta.3 --locked
 herdr-pretty-which --install-plugin
 herdr plugin action invoke ramarivera.pretty-which.open
 ```

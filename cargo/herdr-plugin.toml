@@ -1,7 +1,7 @@
 # Herdr plugin manifest. Requires Herdr >= 0.7.4 for popup panes.
 id = "ramarivera.pretty-which"
 name = "Pretty Which"
-version = "0.3.0-beta.2"
+version = "0.3.0-beta.3"
 min_herdr_version = "0.7.4"
 description = "Keybindings, command launcher, and shell for Herdr."
 platforms = ["linux", "macos"]
