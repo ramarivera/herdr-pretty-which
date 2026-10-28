@@ -113,8 +113,14 @@ fn terminal_following_themes_leave_colors_to_terminal_in_every_view() {
             let cells = &backend.buffer().content;
             assert!(cells.iter().all(|cell| matches!(
                 cell.fg,
-                Color::Reset | Color::Blue | Color::Magenta | Color::Red
-            ) && cell.bg == Color::Reset));
+                Color::Reset
+                    | Color::Blue
+                    | Color::Magenta
+                    | Color::Red
+                    | Color::Black
+                    | Color::White
+            ) && (cell.bg == Color::Reset
+                || cell.bg == palette.accent)));
             for accent in [Color::Blue, Color::Magenta] {
                 assert!(
                     cells
@@ -124,10 +130,9 @@ fn terminal_following_themes_leave_colors_to_terminal_in_every_view() {
                 );
             }
             assert!(
-                cells
-                    .iter()
-                    .any(|cell| cell.modifier.contains(Modifier::REVERSED)
-                        && !cell.symbol().trim().is_empty()),
+                cells.iter().any(|cell| cell.bg == palette.accent
+                    && cell.fg != Color::Reset
+                    && !cell.symbol().trim().is_empty()),
                 "selection must remain visible in {view:?}"
             );
         }
@@ -143,8 +148,67 @@ fn terminal_theme_has_no_fixed_rgb_colors_without_custom_overrides() {
         .buffer()
         .content
         .iter()
-        .all(|cell| !matches!(cell.fg, Color::Rgb(..)) && cell.bg == Color::Reset));
+        .all(|cell| !matches!(cell.fg, Color::Rgb(..))
+            && (cell.bg == Color::Reset || cell.bg == palette.accent)));
     let divider = &backend.buffer()[(0, 1)];
     assert_eq!(divider.fg, Color::Reset);
     assert!(divider.modifier.contains(Modifier::DIM));
+}
+
+#[test]
+fn reset_body_selection_uses_configured_theme_color_in_every_guide_view() {
+    let selection = Color::Rgb(110, 134, 173);
+    let palette = Palette::from_theme(&ThemeConfig {
+        name: Some("catppuccin".into()),
+        custom: ThemeCustom {
+            text: Some("reset".into()),
+            selection_bg: Some("#6e86ad".into()),
+            ..Default::default()
+        },
+    });
+    assert_eq!(palette.accent, selection);
+    for view in [
+        NavigationViewMode::Keys,
+        NavigationViewMode::Tree,
+        NavigationViewMode::List,
+    ] {
+        let backend = render_embedded_to_test_backend(&app(view), palette, 120, 36).unwrap();
+        let selected: Vec<_> = backend
+            .buffer()
+            .content
+            .iter()
+            .filter(|cell| cell.bg == selection && !cell.symbol().trim().is_empty())
+            .collect();
+        assert!(
+            !selected.is_empty(),
+            "{view:?} must use the configured accent"
+        );
+        for cell in selected {
+            let fg = luminance(cell.fg);
+            let bg = luminance(cell.bg);
+            assert!((fg.max(bg) + 0.05) / (fg.min(bg) + 0.05) >= 4.5);
+        }
+    }
+}
+
+#[test]
+fn selection_prefers_a_chromatic_theme_accent_but_preserves_monochrome_themes() {
+    let mut custom = ThemeCustom {
+        selection_bg: Some("#aaaaaa".into()),
+        blue: Some("#3366cc".into()),
+        ..Default::default()
+    };
+    let theme = |custom| ThemeConfig {
+        name: Some("terminal".into()),
+        custom,
+    };
+    assert_eq!(
+        Palette::from_theme(&theme(custom.clone())).accent,
+        Color::Rgb(51, 102, 204)
+    );
+    custom.blue = Some("#cccccc".into());
+    assert_eq!(
+        Palette::from_theme(&theme(custom)).accent,
+        Color::Rgb(170, 170, 170)
+    );
 }

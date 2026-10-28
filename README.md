@@ -15,12 +15,12 @@ The recording below shows the earlier guide. In this beta, press `Ctrl+F` before
 
 ## Install the beta
 
-Version `0.3.0-beta.1` combines the guide, launcher, and shell for testing. Herdr Palette remains supported as a separate plugin while this beta is evaluated.
+Version `0.3.0-beta.2` combines the guide, launcher, and shell for testing. Herdr Palette remains supported as a separate plugin while this beta is evaluated.
 
 Requires Herdr 0.7.4 or newer for popup plugin panes. The beta terminal flows were tested against Herdr `0.9.4-preview.2026-10-14-fbd2ae23927f`. Install the crate and link its manifest:
 
 ```nu
-cargo install herdr-pretty-which --version 0.3.0-beta.1 --locked
+cargo install herdr-pretty-which --version 0.3.0-beta.2 --locked
 herdr-pretty-which --install-plugin
 herdr plugin action invoke ramarivera.pretty-which.open
 ```
@@ -55,7 +55,7 @@ type = "plugin_action"
 command = "ramarivera.pretty-which.open"
 ```
 
-The existing `open` action and `overlay` pane still open the keybinding guide. The popup uses 90% of terminal width and 80% of its height.
+The existing `open` action and `overlay` pane still open the keybinding guide. The guide and launcher use 90% of terminal width and 80% of its height. The standalone shell opens in a compact 12-row popup. Input and output wrap, with recent output kept in view. Herdr currently fixes popup size at creation, so it cannot grow with output; shell mode entered with `Ctrl+S` retains the launcher size.
 
 ## Controls
 
@@ -69,7 +69,7 @@ Keep Herdr Palette installed while testing. Install and link this beta as above,
 
 ## Theming
 
-With the `terminal` theme or `[theme.custom] text = "reset"`, body text and backgrounds follow your terminal defaults. Headings and shortcuts use blue and magenta from your terminal's current ANSI palette, so their actual colors follow your terminal theme rather than a fixed Catppuccin preset. Badge backgrounds stay transparent and selection uses reverse video. Explicit color themes keep their RGB colors, with unreadable foregrounds adjusted against each rendered background.
+With the `terminal` theme or `[theme.custom] text = "reset"`, body text and backgrounds follow your terminal defaults. Headings and shortcuts use blue and magenta from your terminal's current ANSI palette, so their actual colors follow your terminal theme rather than a fixed Catppuccin preset. Badge backgrounds stay transparent. Selection uses the theme's colored accent, with readable text, rather than reversing the default foreground and background. Explicit `selection_bg` and `active_row_bg` overrides are honored; if an override is neutral, a configured colored accent takes priority. Fully neutral custom themes remain neutral. Explicit color themes keep their RGB colors, with unreadable foregrounds adjusted against each rendered background.
 
 ## Testing
 

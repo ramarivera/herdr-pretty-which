@@ -68,6 +68,16 @@ type = "plugin_action"
 command = "ramarivera.pretty-which.shell"
 TOML
 
+# Reproduce terminal-following text with an explicit, theme-provided selection.
+if [ "${PRETTY_WHICH_VHS_RESET_BODY:-0}" = "1" ]; then
+    cat >> "$HERDR_CONFIG_PATH" <<'TOML'
+
+[theme.custom]
+text = "reset"
+subtext0 = "reset"
+selection_bg = "#6e86ad"
+TOML
+fi
 # Optional theme lets the same end-to-end tape cover light and dark palettes.
 if [ "${PRETTY_WHICH_VHS_THEME:-catppuccin}" = "catppuccin-latte" ]; then
     sed -i 's/name = "catppuccin"/name = "catppuccin-latte"/' "$HERDR_CONFIG_PATH"

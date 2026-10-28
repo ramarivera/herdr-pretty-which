@@ -1,4 +1,5 @@
 pub mod items;
+mod sizing;
 mod source;
 mod tree;
 
@@ -18,7 +19,7 @@ use ratatui::{
     layout::{Constraint, Layout},
     style::{Modifier, Style},
     text::Line,
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::{io, path::PathBuf, time::Duration};
@@ -498,12 +499,6 @@ fn interactive(mut state: State) -> Result<()> {
 fn draw(f: &mut Frame<'_>, state: &mut State) {
     let palette = state.data.palette;
     let area = f.area();
-    let parts = Layout::vertical([
-        Constraint::Length(3),
-        Constraint::Min(1),
-        Constraint::Length(2),
-    ])
-    .split(area);
     let title = if let Some((kind, verb, id, _)) = &state.pending {
         format!(
             "{verb} {kind} {id}{}",
@@ -531,8 +526,29 @@ fn draw(f: &mut Frame<'_>, state: &mut State) {
     } else {
         &state.query
     };
+    let input_lines = if state.shell_mode {
+        sizing::wrap_input(input, area.width)
+    } else {
+        vec![format!("> {input}")]
+    };
+    let input_height = if state.shell_mode {
+        sizing::input_height(input_lines.len(), area.height)
+    } else {
+        3
+    };
+    let parts = Layout::vertical([
+        Constraint::Length(input_height),
+        Constraint::Min(1),
+        Constraint::Length(2),
+    ])
+    .split(area);
+    let input_scroll = input_lines
+        .len()
+        .saturating_sub(parts[0].height.saturating_sub(2) as usize)
+        .min(u16::MAX as usize) as u16;
     f.render_widget(
-        Paragraph::new(format!("> {input}"))
+        Paragraph::new(input_lines.into_iter().map(Line::raw).collect::<Vec<_>>())
+            .scroll((input_scroll, 0))
             .style(Style::default().fg(palette.text).bg(palette.panel))
             .block(Block::default().title(title).borders(Borders::ALL)),
         parts[0],
@@ -542,13 +558,22 @@ fn draw(f: &mut Frame<'_>, state: &mut State) {
             .shell
             .lines
             .iter()
-            .rev()
-            .take(parts[1].height as usize)
-            .rev()
             .map(|s| Line::raw(s.clone()))
             .collect();
+        let output_rows: usize = state
+            .shell
+            .lines
+            .iter()
+            .map(|s| sizing::wrapped_rows(s, parts[1].width))
+            .sum();
+        let scroll = output_rows
+            .saturating_sub(parts[1].height as usize)
+            .min(u16::MAX as usize) as u16;
         f.render_widget(
-            Paragraph::new(lines).style(Style::default().fg(palette.text).bg(palette.panel)),
+            Paragraph::new(lines)
+                .wrap(Wrap { trim: false })
+                .scroll((scroll, 0))
+                .style(Style::default().fg(palette.text).bg(palette.panel)),
             parts[1],
         );
     } else {

@@ -68,7 +68,11 @@ fn manifests_launch_all_modes_from_any_directory() {
             assert_eq!(p["id"].as_str(), Some(*pane));
             assert_eq!(p["placement"].as_str(), Some("popup"));
             assert_eq!(p["width"].as_str(), Some("90%"));
-            assert_eq!(p["height"].as_str(), Some("80%"));
+            if *pane == "shell" {
+                assert_eq!(p["height"].as_integer(), Some(12));
+            } else {
+                assert_eq!(p["height"].as_str(), Some("80%"));
+            }
             run_command(&p["command"], root, &capture);
             assert_eq!(
                 fs::read_to_string(&capture).unwrap(),

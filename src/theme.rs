@@ -13,6 +13,8 @@ pub struct ThemeConfig {
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ThemeCustom {
+    pub selection_bg: Option<String>,
+    pub active_row_bg: Option<String>,
     pub panel_bg: Option<String>,
     pub surface0: Option<String>,
     pub surface1: Option<String>,
@@ -85,13 +87,27 @@ impl Palette {
         } else if let Some(muted) = theme.custom.overlay0.as_deref().and_then(parse_color) {
             palette.muted = muted;
         }
-        if let Some(accent) = theme
-            .custom
-            .accent
-            .as_deref()
-            .or(theme.custom.mauve.as_deref())
-            .or(theme.custom.blue.as_deref())
-            .and_then(parse_color)
+        // Herdr's active-row/selection overrides are theme colors too. Prefer
+        // a chromatic candidate so a neutral selection override doesn't erase
+        // an explicitly configured accent. Entirely neutral themes stay neutral.
+        let accents: Vec<Color> = [
+            &theme.custom.selection_bg,
+            &theme.custom.active_row_bg,
+            &theme.custom.accent,
+            &theme.custom.mauve,
+            &theme.custom.blue,
+            &theme.custom.magenta,
+            &theme.custom.teal,
+            &theme.custom.cyan,
+        ]
+        .into_iter()
+        .filter_map(|color| color.as_deref().and_then(parse_color))
+        .collect();
+        if let Some(accent) = accents
+            .iter()
+            .copied()
+            .find(|c| is_chromatic(*c))
+            .or_else(|| accents.first().copied())
         {
             palette.accent = accent;
         }
@@ -112,6 +128,15 @@ impl Palette {
         }
         if let Some(yellow) = theme.custom.yellow.as_deref().and_then(parse_color) {
             palette.warning = yellow;
+        }
+        // A terminal-following body uses the terminal's ANSI accent unless
+        // the user supplied an explicit accent/selection color. Don't freeze a
+        // named preset's RGB selection while the terminal appearance changes.
+        if (palette.text == Color::Reset || palette.bg == Color::Reset) && accents.is_empty() {
+            palette.accent = Color::Blue;
+            if palette.accent_2 == Color::Blue {
+                palette.accent_2 = Color::Magenta;
+            }
         }
         palette
     }
@@ -477,6 +502,14 @@ fn parse_color(value: &str) -> Option<Color> {
         "white" => Some(Color::White),
         "gray" | "grey" => Some(Color::Gray),
         _ => None,
+    }
+}
+
+fn is_chromatic(color: Color) -> bool {
+    match color {
+        Color::Rgb(r, g, b) => r.max(g).max(b) - r.min(g).min(b) > 12,
+        Color::Reset | Color::Black | Color::DarkGray | Color::Gray | Color::White => false,
+        _ => true,
     }
 }
 

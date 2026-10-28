@@ -82,10 +82,17 @@ Wait+Screen@10s /VHS-TWO-TABS-OK/
 Ctrl+B
 Type "!"
 Wait+Screen@10s /Shell/
+Screenshot "shell-empty.png"
+Sleep 1s
 Type "printf VHS-SHELL-%s OK"
 Enter
 Wait+Screen@10s /VHS-SHELL-OK/
 Screenshot "shell.png"
+Sleep 1s
+Type "for i in {1..15}; do echo LINE-$i; done"
+Enter
+Wait+Screen@10s /LINE-15/
+Screenshot "shell-output.png"
 Sleep 1s
 Escape
 Sleep 1s

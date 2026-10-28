@@ -10,8 +10,27 @@ pub fn ensure_readable(buffer: &mut Buffer, palette: Palette) {
     for cell in &mut buffer.content {
         if terminal_backed {
             if cell.bg == palette.accent && palette.accent != Color::Reset {
-                cell.modifier.insert(Modifier::REVERSED);
-                cell.fg = Color::Reset;
+                // Reset body text follows the terminal, but selection must
+                // retain the theme's accent rather than reversing default grey.
+                cell.modifier.remove(Modifier::REVERSED);
+                cell.fg = if contrast_ratio(Color::Black, palette.accent)
+                    >= contrast_ratio(Color::White, palette.accent)
+                {
+                    Color::Black
+                } else {
+                    Color::White
+                };
+                // Explicit RGB backgrounds need literal RGB black/white,
+                // since ANSI "black" can be grey in the terminal's palette.
+                if matches!(palette.accent, Color::Rgb(..)) {
+                    cell.fg = if cell.fg == Color::Black {
+                        Color::Rgb(0, 0, 0)
+                    } else {
+                        Color::Rgb(255, 255, 255)
+                    };
+                }
+                cell.bg = palette.accent;
+                continue;
             } else if cell.fg == palette.accent || cell.fg == palette.success {
                 cell.fg = Color::Blue;
             } else if cell.fg == palette.accent_2 || cell.fg == palette.warning {

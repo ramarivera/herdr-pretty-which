@@ -3,7 +3,7 @@ use crate::app::NavigationViewMode;
 use crate::theme::{Palette, ThemeConfig, ThemeCustom};
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
-use ratatui::style::{Color, Modifier};
+use ratatui::style::Color;
 use ratatui::Terminal;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -116,13 +116,21 @@ fn launcher_and_shell_preserve_terminal_background_and_selection() {
         for mode in [Mode::List, Mode::Tree, Mode::Shell] {
             let buffer = render(palette, mode);
             assert!(
-                buffer.content.iter().all(|cell| cell.bg == Color::Reset),
+                buffer
+                    .content
+                    .iter()
+                    .all(|cell| cell.bg == Color::Reset || cell.bg == palette.accent),
                 "{name} {mode:?} must preserve terminal background"
             );
             assert!(
                 buffer.content.iter().all(|cell| matches!(
                     cell.fg,
-                    Color::Reset | Color::Blue | Color::Magenta | Color::Red
+                    Color::Reset
+                        | Color::Blue
+                        | Color::Magenta
+                        | Color::Red
+                        | Color::Black
+                        | Color::White
                 )),
                 "{name} {mode:?} must use terminal colors"
             );
@@ -132,7 +140,8 @@ fn launcher_and_shell_preserve_terminal_background_and_selection() {
                         .content
                         .iter()
                         .any(|cell| !cell.symbol().trim().is_empty()
-                            && cell.modifier.contains(Modifier::REVERSED)),
+                            && cell.bg == palette.accent
+                            && cell.fg != Color::Reset),
                     "{name} {mode:?} selection must be visible"
                 );
             }
@@ -167,4 +176,95 @@ fn filtered_tree_selects_most_relevant_executable_binding() {
     let selected = &state.data.items[state.selected_item().unwrap()];
     assert_eq!(selected.binding.as_ref().unwrap().action, "new_tab");
     assert!(selected.is_dispatchable());
+}
+
+#[test]
+fn long_shell_input_wraps_without_losing_its_tail() {
+    let data = PaletteData {
+        items: Vec::new(),
+        config_path: "fixture".into(),
+        theme_name: "terminal".into(),
+        palette: Palette::from_theme(&ThemeConfig::default()),
+        cwd: PathBuf::from("/"),
+        errors: Vec::new(),
+        custom_dispatch: BTreeMap::new(),
+    };
+    let mut state = State::from_data(data, None, "", Some(NavigationViewMode::List), true, None);
+    state.shell.input = "one two three four five six seven eight nine ten END".into();
+    let mut terminal = Terminal::new(TestBackend::new(20, 15)).unwrap();
+    terminal.draw(|frame| draw(frame, &mut state)).unwrap();
+    let contents: String = terminal
+        .backend()
+        .buffer()
+        .content
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect();
+    assert!(
+        contents.contains("END"),
+        "wrapped input tail is missing: {contents}"
+    );
+}
+
+#[test]
+fn shell_scrolls_to_long_input_and_latest_wrapped_output() {
+    let data = PaletteData {
+        items: Vec::new(),
+        config_path: "fixture".into(),
+        theme_name: "terminal".into(),
+        palette: Palette::from_theme(&ThemeConfig::default()),
+        cwd: PathBuf::from("/"),
+        errors: Vec::new(),
+        custom_dispatch: BTreeMap::new(),
+    };
+    let mut state = State::from_data(data, None, "", Some(NavigationViewMode::List), true, None);
+    state.shell.input = format!("{}END", "a".repeat(200));
+    let mut terminal = Terminal::new(TestBackend::new(20, 12)).unwrap();
+    terminal.draw(|frame| draw(frame, &mut state)).unwrap();
+    let contents: String = terminal
+        .backend()
+        .buffer()
+        .content
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect();
+    assert!(
+        contents.contains("END"),
+        "long input tail is missing: {contents}"
+    );
+    state.shell.input.clear();
+    state.shell.lines = vec!["line ".repeat(40), "latest END".into()];
+    terminal.draw(|frame| draw(frame, &mut state)).unwrap();
+    let contents: String = terminal
+        .backend()
+        .buffer()
+        .content
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect();
+    assert!(
+        contents.contains("latest END"),
+        "latest output is missing: {contents}"
+    );
+}
+
+#[test]
+fn launcher_and_picker_selection_keep_the_explicit_theme_accent() {
+    let palette = Palette::from_theme(&ThemeConfig {
+        name: Some("catppuccin".into()),
+        custom: ThemeCustom {
+            text: Some("reset".into()),
+            selection_bg: Some("#6e86ad".into()),
+            ..Default::default()
+        },
+    });
+    for mode in [Mode::List, Mode::Tree] {
+        let buffer = render(palette, mode);
+        assert!(buffer
+            .content
+            .iter()
+            .any(|cell| !cell.symbol().trim().is_empty()
+                && cell.bg == Color::Rgb(110, 134, 173)
+                && cell.fg == Color::Rgb(0, 0, 0)));
+    }
 }
