@@ -1,0 +1,308 @@
+//! Searchable launcher items and their executable actions.
+
+use crate::model::{Binding, BindingStatus, Category, CommandBinding, KeyValue};
+
+/// What kind of source an [`Item`] came from. Drives category labeling and
+/// rendering accents, never dispatch logic (dispatch lives in [`Dispatch`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ItemKind {
+    /// A Herdr built-in keybinding action (`[keys]` section).
+    Binding,
+    /// An action declared by some installed plugin (`plugin.action.list`).
+    PluginAction,
+    /// A user `[[keys.command]]` entry.
+    CustomCommand,
+    /// A jump destination from `workspace list`.
+    JumpWorkspace,
+    /// A jump destination from `tab list`.
+    JumpTab,
+    /// A jump destination from `agent list`.
+    JumpAgent,
+}
+
+impl ItemKind {
+    pub fn category_label(self) -> &'static str {
+        match self {
+            ItemKind::Binding => "Keybinding",
+            ItemKind::PluginAction => "Plugin",
+            ItemKind::CustomCommand => "Custom",
+            ItemKind::JumpWorkspace => "Workspace",
+            ItemKind::JumpTab => "Tab",
+            ItemKind::JumpAgent => "Agent",
+        }
+    }
+}
+
+/// How an item executes, or opens a picker or prompt.
+#[derive(Debug, Clone)]
+pub enum Dispatch {
+    /// Run an argv vector. Binary is `argv[0]` (normally `"herdr"`); resolved
+    /// via `HERDR_BIN_PATH` or PATH at dispatch time.
+    Cli(Vec<String>),
+    /// Focus a workspace by id (`herdr workspace focus <id>`).
+    FocusWorkspace(String),
+    /// Focus a tab by id (`herdr tab focus <id>`).
+    FocusTab(String),
+    /// Focus an agent by target (`herdr agent focus <target>`).
+    FocusAgent(String),
+    /// Cycle to the neighbor (list + resolve + focus).
+    NextWorkspace,
+    PrevWorkspace,
+    NextTab,
+    PrevTab,
+    NextAgent,
+    PrevAgent,
+    WorkspacePicker,
+    TabPicker,
+    AgentPicker,
+    EditScrollback,
+    CyclePaneNext,
+    CyclePanePrevious,
+    ShellCommand(String),
+    Target {
+        kind: String,
+        verb: String,
+    },
+}
+
+/// One fuzzyable row in the palette.
+#[derive(Debug, Clone)]
+pub struct Item {
+    pub kind: ItemKind,
+    pub title: String,
+    /// Secondary line: hint, plugin id, or target detail.
+    pub subtitle: String,
+    /// Keybinding display chips, e.g. `["prefix+n"]`. Empty for non-keybindings.
+    pub keys: Vec<String>,
+    /// Mnemonic path used by tree mode. Built-in keybindings reuse Pretty Which
+    /// paths; non-keybinding rows get synthetic palette paths.
+    pub tree_path: Vec<String>,
+    /// Original Pretty Which binding when this row came from a keybinding.
+    /// Kept so search scoring can reuse the shared key-aware matcher.
+    pub binding: Option<Binding>,
+    /// When `None`, the item is reference-only and renders greyed.
+    pub dispatch: Option<Dispatch>,
+}
+
+impl Item {
+    /// Build the fuzzy-match haystack. Biased toward title, then subtitle, then
+    /// keys, so typing "split" ranks "Split vertical" first.
+    pub fn haystack(&self) -> String {
+        let mut s = String::with_capacity(self.title.len() + self.subtitle.len() + 16);
+        s.push_str(&self.title);
+        s.push(' ');
+        s.push_str(&self.subtitle);
+        s.push(' ');
+        s.push_str(self.kind.category_label());
+        if !self.keys.is_empty() {
+            s.push(' ');
+            s.push_str(&self.keys.join(" "));
+        }
+        s
+    }
+
+    /// True when this row can actually be fired (Enter will do something).
+    pub fn is_dispatchable(&self) -> bool {
+        self.dispatch.is_some()
+    }
+}
+
+/// Convert a Pretty Which [`Binding`] into a palette [`Item`], computing its
+/// dispatch tier. Bindings with no programmatic path in Herdr v1 get
+/// `dispatch = None` and render as reference rows.
+pub fn item_from_binding(binding: &Binding) -> Item {
+    let dispatch = crate::dispatch::dispatch_for_action(&binding.action);
+    Item {
+        kind: ItemKind::Binding,
+        title: binding.label.clone(),
+        subtitle: binding.hint.clone(),
+        keys: binding.keys.clone(),
+        tree_path: binding.tree_path.clone(),
+        binding: Some(binding.clone()),
+        dispatch,
+    }
+}
+
+/// Convert a user `[[keys.command]]` [`CommandBinding`] into an [`Item`].
+/// Plugin-action-typed commands are dispatchable via their command; shell/pane
+/// commands are left reference-only in v1 because faithfully replaying a
+/// temp-pane command from outside the keybinding layer is better left to its
+/// chord.
+pub fn item_from_command(cmd: &CommandBinding) -> Item {
+    let name = cmd
+        .name
+        .clone()
+        .unwrap_or_else(|| "Unnamed command".to_string());
+    let subtitle = cmd
+        .description
+        .clone()
+        .or_else(|| cmd.command.clone())
+        .unwrap_or_else(|| "Custom Herdr command".to_string());
+    let keys = cmd.key.as_ref().map(|kv| kv.keys()).unwrap_or_default();
+    // Plugin-action-typed commands carry a resolvable argv string, but we
+    // cannot shell-split it safely from outside the keybinding layer, so keep
+    // the chord as the dispatch path and mark these reference-only. Typed
+    // plugin actions discovered via `herdr plugin action list` are handled
+    // separately (and ARE dispatchable, via their real `command[]`).
+    let dispatch: Option<Dispatch> = None;
+    Item {
+        kind: ItemKind::CustomCommand,
+        title: name,
+        subtitle,
+        keys,
+        tree_path: vec!["Custom".to_string(), "Commands".to_string()],
+        binding: None,
+        dispatch,
+    }
+}
+
+/// A discovered plugin action row from `plugin.action.list`. The action ships a
+/// fully-resolved `command[]`; invoke it through Herdr so its context and hooks apply.
+pub fn item_from_plugin_action(
+    plugin_id: &str,
+    action_id: &str,
+    title: Option<&str>,
+    _command: &[String],
+) -> Item {
+    let qualified = if action_id.contains('.') {
+        action_id.to_string()
+    } else {
+        format!("{plugin_id}.{action_id}")
+    };
+    let label = title
+        .map(str::to_string)
+        .unwrap_or_else(|| qualified.clone());
+    Item {
+        kind: ItemKind::PluginAction,
+        title: label,
+        subtitle: qualified,
+        keys: Vec::new(),
+        tree_path: vec!["Plugins".to_string(), plugin_id.to_string()],
+        binding: None,
+        dispatch: Some(Dispatch::Cli(vec![
+            "herdr".into(),
+            "plugin".into(),
+            "action".into(),
+            "invoke".into(),
+            action_id.into(),
+            "--plugin".into(),
+            plugin_id.into(),
+        ])),
+    }
+}
+
+/// A jump target (workspace/tab/agent). The id/target flows into the focus
+/// dispatch.
+pub fn item_from_jump(kind: ItemKind, title: &str, id: &str) -> Item {
+    let dispatch = match kind {
+        ItemKind::JumpWorkspace => Some(Dispatch::FocusWorkspace(id.to_string())),
+        ItemKind::JumpTab => Some(Dispatch::FocusTab(id.to_string())),
+        ItemKind::JumpAgent => Some(Dispatch::FocusAgent(id.to_string())),
+        _ => None,
+    };
+    let tree_path = match kind {
+        ItemKind::JumpWorkspace => vec!["Jump".to_string(), "Workspaces".to_string()],
+        ItemKind::JumpTab => vec!["Jump".to_string(), "Tabs".to_string()],
+        ItemKind::JumpAgent => vec!["Jump".to_string(), "Agents".to_string()],
+        _ => vec![kind.category_label().to_string()],
+    };
+    Item {
+        kind,
+        title: title.to_string(),
+        subtitle: id.to_string(),
+        keys: Vec::new(),
+        tree_path,
+        binding: None,
+        dispatch,
+    }
+}
+
+/// Whether a Pretty Which binding is worth showing as a reference-only row
+/// (disabled bindings and keyless discovered actions are noise in a palette).
+#[allow(dead_code)]
+pub fn binding_is_reference(binding: &Binding) -> bool {
+    binding.status == BindingStatus::Disabled
+        || (matches!(binding.category, Category::Discovered) && binding.keys.is_empty())
+}
+
+/// Helper kept for callers that already have a `KeyValue` they want flattened.
+#[allow(dead_code)]
+pub fn kv_keys(kv: &KeyValue) -> Vec<String> {
+    kv.keys()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cmd(name: &str, key: &str, ctype: Option<&str>, command: Option<&str>) -> CommandBinding {
+        CommandBinding {
+            name: Some(name.to_string()),
+            description: None,
+            key: Some(KeyValue::One(key.to_string())),
+            r#type: ctype.map(str::to_string),
+            command: command.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn plugin_action_item_runs_real_command_array() {
+        let command = vec![
+            "herdr".to_string(),
+            "plugin".to_string(),
+            "pane".to_string(),
+            "open".to_string(),
+            "--plugin".to_string(),
+            "ramarivera.pretty-which".to_string(),
+        ];
+        let item = item_from_plugin_action(
+            "ramarivera.pretty-which",
+            "open",
+            Some("Open pretty which"),
+            &command,
+        );
+        assert_eq!(item.subtitle, "ramarivera.pretty-which.open");
+        assert!(matches!(
+            item.dispatch,
+            Some(Dispatch::Cli(ref argv)) if argv == &["herdr", "plugin", "action", "invoke", "open", "--plugin", "ramarivera.pretty-which"]
+        ));
+    }
+
+    #[test]
+    fn shell_command_is_reference_only_in_v1() {
+        let item = item_from_command(&cmd(
+            "lazygit",
+            "prefix+alt+g",
+            Some("pane"),
+            Some("lazygit"),
+        ));
+        assert!(item.dispatch.is_none());
+        assert!(!item.is_dispatchable());
+    }
+
+    #[test]
+    fn haystack_includes_title_subtitle_kind_and_keys() {
+        let item = Item {
+            kind: ItemKind::Binding,
+            title: "Split vertical".into(),
+            subtitle: "Split side by side.".into(),
+            keys: vec!["prefix+v".into()],
+            tree_path: vec!["Panes".into(), "Layout".into()],
+            binding: None,
+            dispatch: None,
+        };
+        let h = item.haystack();
+        assert!(h.contains("Split vertical"));
+        assert!(h.contains("prefix+v"));
+        assert!(h.contains("Keybinding"));
+    }
+
+    #[test]
+    fn jump_items_are_dispatchable() {
+        let ws = item_from_jump(ItemKind::JumpWorkspace, "api", "w1");
+        assert!(matches!(ws.dispatch, Some(Dispatch::FocusWorkspace(_))));
+        let tab = item_from_jump(ItemKind::JumpTab, "logs", "w1:t2");
+        assert!(matches!(tab.dispatch, Some(Dispatch::FocusTab(_))));
+        assert!(ws.is_dispatchable());
+    }
+}

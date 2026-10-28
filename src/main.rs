@@ -1,25 +1,25 @@
 use anyhow::Result;
 use clap::Parser;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
-use crossterm::execute;
-use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
 use herdr_pretty_which::config::load_herdr_config;
 use herdr_pretty_which::discover::discover_default_config;
 use herdr_pretty_which::model::effective_bindings_with_discovery;
-use herdr_pretty_which::render::{render_app, render_to_string};
-use herdr_pretty_which::state::{load_state, save_state, AppState};
+use herdr_pretty_which::render::render_to_string;
+use herdr_pretty_which::state::load_state;
 use herdr_pretty_which::theme::Palette;
 use herdr_pretty_which::{App, NavigationViewMode};
-use ratatui::backend::CrosstermBackend;
-use ratatui::Terminal;
 use std::io::{self, IsTerminal};
 use std::path::PathBuf;
+
+mod install;
+mod interactive;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
 struct Args {
+    /// Install and link the embedded plugin manifest with Herdr.
+    #[arg(long)]
+    install_plugin: bool,
+
     /// Read a specific Herdr config path instead of HERDR_CONFIG_PATH or ~/.config/herdr/config.toml.
     #[arg(long)]
     config: Option<PathBuf>,
@@ -40,9 +40,24 @@ struct Args {
     #[arg(long, default_value_t = 32)]
     height: u16,
 
+    /// Keys reference, executable launcher, or login-shell runner.
+    #[arg(long, value_enum, default_value = "keys")]
+    mode: Mode,
+
+    /// Alias for --mode shell.
+    #[arg(long)]
+    shell: bool,
+
     /// Starting view. Interactive mode otherwise restores the last used view.
     #[arg(long, value_enum)]
     view: Option<ViewArg>,
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum, PartialEq, Eq)]
+enum Mode {
+    Keys,
+    Launcher,
+    Shell,
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
@@ -79,6 +94,35 @@ fn unmodeled_discovered_actions(
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    if args.install_plugin {
+        return install::install_plugin();
+    }
+    let mode = if args.shell { Mode::Shell } else { args.mode };
+    if mode != Mode::Keys {
+        let view = args.view.map(Into::into);
+        if view == Some(NavigationViewMode::Keys) {
+            anyhow::bail!("--view keys is only available with --mode keys");
+        }
+        if args.snapshot || !io::stdout().is_terminal() {
+            let render = if mode == Mode::Shell {
+                herdr_pretty_which::launcher::render_shell_snapshot
+            } else {
+                herdr_pretty_which::launcher::render_snapshot
+            };
+            print!(
+                "{}",
+                render(args.config, &args.query, view, args.width, args.height)?
+            );
+            return Ok(());
+        }
+        return herdr_pretty_which::launcher::run(
+            args.config,
+            &args.query,
+            view,
+            mode == Mode::Shell,
+        );
+    }
+    let config_path = args.config.clone();
     let source = load_herdr_config(args.config)?;
     let theme_name = source
         .config
@@ -127,7 +171,7 @@ fn main() -> Result<()> {
         app.set_query(args.query);
     }
 
-    run_interactive(app, palette)
+    interactive::run(app, palette, config_path)
 }
 
 fn display_path(path: &std::path::Path) -> String {
@@ -137,69 +181,4 @@ fn display_path(path: &std::path::Path) -> String {
         }
     }
     path.display().to_string()
-}
-
-fn run_interactive(mut app: App, palette: Palette) -> Result<()> {
-    let mut stdout = io::stdout();
-    let _guard = TerminalGuard::enter(&mut stdout)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    loop {
-        terminal.draw(|frame| render_app(frame, &app, palette))?;
-        if event::poll(std::time::Duration::from_millis(200))? {
-            match event::read()? {
-                Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
-                    KeyCode::Esc => break,
-                    // `q` closes only with an empty filter so it stays typeable.
-                    KeyCode::Char('q') if app.query.is_empty() => break,
-                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
-                    KeyCode::Down => app.move_down(),
-                    KeyCode::Up => app.move_up(),
-                    KeyCode::Left => app.tree_left(),
-                    KeyCode::Right => app.tree_right(),
-                    KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        app.toggle_navigation_view();
-                        let _ = save_state(&AppState::from_navigation_view(app.navigation_view));
-                    }
-                    KeyCode::Char('[') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        app.collapse_all_tree_nodes()
-                    }
-                    KeyCode::Char(']') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        app.expand_all_tree_nodes()
-                    }
-                    KeyCode::BackTab => app.previous_binding_view(),
-                    KeyCode::Tab if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                        app.previous_binding_view()
-                    }
-                    KeyCode::Tab => app.next_binding_view(),
-                    KeyCode::Backspace => app.pop_query_char(),
-                    KeyCode::Char(ch) => app.push_query_char(ch),
-                    _ => {}
-                },
-                Event::Resize(_, _) => {}
-                _ => {}
-            }
-        }
-    }
-
-    terminal.show_cursor()?;
-    Ok(())
-}
-
-struct TerminalGuard;
-
-impl TerminalGuard {
-    fn enter(stdout: &mut io::Stdout) -> Result<Self> {
-        enable_raw_mode()?;
-        execute!(stdout, EnterAlternateScreen)?;
-        Ok(Self)
-    }
-}
-
-impl Drop for TerminalGuard {
-    fn drop(&mut self) {
-        let _ = disable_raw_mode();
-        let _ = execute!(io::stdout(), LeaveAlternateScreen);
-    }
 }

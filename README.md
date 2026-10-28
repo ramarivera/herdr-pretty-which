@@ -7,44 +7,45 @@
 
 ![Herdr Pretty Which popup in a live Herdr session](assets/readme-cover.png)
 
-A which-key style keybinding popup for [Herdr](https://herdr.dev), built as a Rust/Ratatui plugin.
+A keybinding guide, command launcher, and shell for [Herdr](https://herdr.dev), built with Rust and Ratatui. The keybinding guide reads your Herdr config and defaults rather than inventing bindings. The launcher combines bindings with live plugin actions and custom commands, removing duplicate entries.
 
-It reads your real Herdr config, merges it with Herdr's defaults, and opens as a floating popup over your workspace. The default KEYS view lays bindings out in category columns with key badges: keys you press after the prefix show without `prefix+`, direct chords such as `alt+right` get their own color, and unset actions show `—`. TREE and LIST views keep the full detail panel and category counts. It does **not** invent bindings; every entry is marked default, config, or unset from the loaded config.
-
-The screenshot above and the demo below are VHS captures of a real Herdr session (`tapes/pretty-which.tape`).
+The recording below shows the earlier guide. In this beta, press `Ctrl+F` before typing a search.
 
 ![Demo: filtering and switching views](assets/pretty-which-demo.gif)
 
-## Install
+## Install the beta
 
-Requires `herdr >= 0.7.4`, the first release with popup plugin panes. On older Herdr, upgrade first or use `herdr-pretty-which --snapshot`.
+Version `0.3.0-beta.1` combines the guide, launcher, and shell for testing. Herdr Palette remains supported as a separate plugin while this beta is evaluated.
+
+Requires Herdr 0.7.4 or newer for popup plugin panes. The beta terminal flows were tested against Herdr `0.9.4-preview.2026-10-14-fbd2ae23927f`. Install the crate and link its manifest:
 
 ```nu
-cargo install herdr-pretty-which --locked
-herdr plugin link cargo
+cargo install herdr-pretty-which --version 0.3.0-beta.1 --locked
+herdr-pretty-which --install-plugin
 herdr plugin action invoke ramarivera.pretty-which.open
 ```
 
-You can also install the GitHub-managed plugin checkout directly. Herdr will
-build the release binary during install and run it from the managed checkout:
+For a GitHub-managed checkout, Herdr builds the current main branch during install. That branch currently contains the beta:
 
 ```nu
 herdr plugin install ramarivera/herdr-pretty-which
 ```
 
-## Local development
+For local development only, use `cargo install --path . --locked` followed by `herdr-pretty-which --install-plugin`. The install command writes a versioned manifest to your user data directory and links its absolute path in Herdr. Run it again after upgrading the binary.
 
-Use the checkout path only when developing the plugin itself:
+## Modes and keybindings
 
-```nu
-cargo install --path . --locked
-herdr plugin link .
-herdr plugin action invoke ramarivera.pretty-which.open
-```
+The plugin has three actions and matching CLI modes:
 
-## Keybinding
+| Action | CLI | Purpose |
+| --- | --- | --- |
+| `ramarivera.pretty-which.open` | `herdr-pretty-which --mode keys` | Keybinding guide, the default |
+| `ramarivera.pretty-which.launcher` | `herdr-pretty-which --mode launcher` | Search and run supported actions |
+| `ramarivera.pretty-which.shell` | `herdr-pretty-which --mode shell` | Run a command in your login shell |
 
-Bind the plugin action through Herdr's command keybinding support:
+`--shell` is an alias for `--mode shell`. The shell captures output without interactive input; it isn't a full interactive terminal.
+
+Bind any action in Herdr's config. For example:
 
 ```toml
 [[keys.command]]
@@ -54,20 +55,19 @@ type = "plugin_action"
 command = "ramarivera.pretty-which.open"
 ```
 
-The popup opens at 90% × 80% of the terminal (see `[[panes]]` in `herdr-plugin.toml`).
+The existing `open` action and `overlay` pane still open the keybinding guide. The popup uses 90% of terminal width and 80% of its height.
 
 ## Controls
 
-- `↑/↓`: move selection
-- type: fuzzy filter (KEYS view jumps to the best match)
-- `Backspace`: edit filter
-- `Tab` / `Shift+Tab`: cycle `ALL` / `ASSIGNED` / `UNASSIGNED`
-- `Ctrl+T`: cycle `KEYS` / `TREE` / `LIST` (remembered between runs)
-- `←/→`: jump between category groups (KEYS) or collapse/expand tree groups (TREE)
-- `Ctrl+[` / `Ctrl+]`: collapse/expand all tree groups
-- `Esc`: close; `q` also closes while the filter is empty
+In the guide, type the group key and then the actual binding key in sequence, such as `w` then `w`. Press `Ctrl+F` for fuzzy search. In the launcher, select a supported action and press `Enter` to run it. Rename actions ask for a new name; close actions require typing `yes`. Plugin actions preserve the caller's workspace, tab, pane, and working directory. Entries marked `chord only` need their original Herdr shortcut because the public host API doesn't expose the equivalent client action or popup lifecycle. This includes help, settings, sidebar toggling, and custom pane/popup commands. Press `Ctrl+R` to refresh live sources; source failures appear in the footer.
 
-The layout adapts to the popup size: KEYS drops columns and pages through them on narrow terminals, and TREE/LIST hide the side panels below about 92 columns.
+Press `Ctrl+S` to switch between launcher and shell. Use the arrow keys to navigate, `Ctrl+T` to change view, and `Esc` to close. The guide offers KEYS, TREE and LIST views; the launcher offers TREE and LIST. The selected view is saved between runs. Override it at startup with `--view keys`, `--view tree`, or `--view list`; launcher mode accepts `tree` and `list`.
+
+## Trying the beta alongside Herdr Palette
+
+Keep Herdr Palette installed while testing. Install and link this beta as above, then change your test bindings from `ramarivera.palette.open` to `ramarivera.pretty-which.launcher` and from `ramarivera.palette.shell` to `ramarivera.pretty-which.shell`. The old action IDs don't automatically redirect. To return to Palette, restore those two original action IDs. Neither repository is deprecated or archived.
+
+## Theming
 
 With the `terminal` theme or `[theme.custom] text = "reset"`, body text and backgrounds follow your terminal defaults. Headings and shortcuts use blue and magenta from your terminal's current ANSI palette, so their actual colors follow your terminal theme rather than a fixed Catppuccin preset. Badge backgrounds stay transparent and selection uses reverse video. Explicit color themes keep their RGB colors, with unreadable foregrounds adjusted against each rendered background.
 
@@ -88,9 +88,13 @@ cargo test --test live_herdr_e2e -- --ignored
 
 The live test links the local plugin and verifies Herdr can see/invoke it. It does not stop your server or delete sessions.
 
-End-to-end popup test with [VHS](https://github.com/charmbracelet/vhs). It starts a throwaway Herdr server under a scratch `HOME`, opens the popup through the real keybinding, fails if the expected screens don't appear, and rewrites the README screenshot and demo:
+End-to-end popup test with [VHS](https://github.com/charmbracelet/vhs). It starts a throwaway Herdr server with isolated XDG configuration and state directories, opens the popup through the real keybinding, fails if the expected screens don't appear, and captures each mode:
 
 ```nu
 $env.PRETTY_WHICH_VHS_ROOT = "/path/to/scratch/dir"
 vhs tapes/pretty-which.tape
 ```
+
+## License
+
+MIT. Launcher and shell functionality builds on [Herdr Palette](https://github.com/ramarivera/herdr-palette), also MIT licensed.

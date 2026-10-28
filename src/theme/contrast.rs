@@ -5,7 +5,7 @@ use ratatui::style::{Color, Modifier};
 /// Resolve styles after widgets have inherited their actual backgrounds.
 /// Terminal-backed colors use the terminal's live ANSI palette, rather than
 /// stale RGB values from a preset that cannot follow appearance changes.
-pub(crate) fn ensure_readable(buffer: &mut Buffer, palette: Palette) {
+pub fn ensure_readable(buffer: &mut Buffer, palette: Palette) {
     let terminal_backed = palette.text == Color::Reset || palette.bg == Color::Reset;
     for cell in &mut buffer.content {
         if terminal_backed {
