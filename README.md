@@ -69,6 +69,8 @@ The popup opens at 90% × 80% of the terminal (see `[[panes]]` in `herdr-plugin.
 
 The layout adapts to the popup size: KEYS drops columns and pages through them on narrow terminals, and TREE/LIST hide the side panels below about 92 columns.
 
+With the `terminal` theme or `[theme.custom] text = "reset"`, the popup follows your terminal's foreground and background. Headings and keys use bold text, badge fills are removed, and the selection uses reverse video so switching between light and dark appearance stays readable. Explicit color themes keep their colors, with unreadable foregrounds adjusted against each rendered background.
+
 ## Testing
 
 ```nu

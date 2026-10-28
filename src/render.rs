@@ -7,7 +7,7 @@ use ratatui::backend::TestBackend;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Row, Table, Wrap};
+use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Row, Table, Wrap};
 use ratatui::{Frame, Terminal};
 
 pub fn render_app(frame: &mut Frame<'_>, app: &App, palette: Palette) {
@@ -20,8 +20,16 @@ fn render_app_with_embed_mode(
     palette: Palette,
     embedded_in_herdr: bool,
 ) {
+    render_content(frame, app, palette, embedded_in_herdr);
+    crate::theme::ensure_readable(frame.buffer_mut(), palette);
+}
+
+fn render_content(frame: &mut Frame<'_>, app: &App, palette: Palette, embedded_in_herdr: bool) {
     let area = frame.area();
-    frame.render_widget(Clear, area);
+    frame.render_widget(
+        Block::default().style(Style::default().fg(palette.text).bg(palette.panel)),
+        area,
+    );
 
     let content_area = if embedded_in_herdr {
         area
@@ -578,7 +586,7 @@ mod tests {
     }
 
     #[test]
-    fn border_style_uses_theme_accent_color() {
+    fn border_style_corrects_unreadable_custom_accent() {
         let app = App::new(
             effective_bindings(&KeysSection::default()),
             "config.toml".into(),
@@ -592,7 +600,10 @@ mod tests {
             },
         });
         let backend = render_to_test_backend(&app, palette, 100, 30).unwrap();
-        assert_eq!(backend.buffer()[(0, 0)].style().fg, Some(palette.accent));
+        assert_eq!(
+            backend.buffer()[(0, 0)].style().fg,
+            Some(ratatui::style::Color::Rgb(159, 95, 242))
+        );
     }
 
     #[test]

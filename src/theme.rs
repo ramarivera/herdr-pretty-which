@@ -1,6 +1,9 @@
 use ratatui::style::Color;
 use serde::Deserialize;
 
+mod contrast;
+pub(crate) use contrast::ensure_readable;
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ThemeConfig {
     pub name: Option<String>,
