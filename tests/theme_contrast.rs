@@ -89,7 +89,13 @@ fn explicit_themes_render_readable_text_on_actual_backgrounds() {
 
 #[test]
 fn terminal_following_themes_leave_colors_to_terminal_in_every_view() {
-    for name in ["terminal", "catppuccin", "catppuccin-latte"] {
+    for name in [
+        "terminal",
+        "catppuccin",
+        "catppuccin-latte",
+        "nord",
+        "gruvbox",
+    ] {
         let palette = Palette::from_theme(&ThemeConfig {
             name: Some(name.into()),
             custom: ThemeCustom {
@@ -105,9 +111,18 @@ fn terminal_following_themes_leave_colors_to_terminal_in_every_view() {
         ] {
             let backend = render_embedded_to_test_backend(&app(view), palette, 120, 36).unwrap();
             let cells = &backend.buffer().content;
-            assert!(cells
-                .iter()
-                .all(|cell| cell.fg == Color::Reset && cell.bg == Color::Reset));
+            assert!(cells.iter().all(|cell| matches!(
+                cell.fg,
+                Color::Reset | Color::Blue | Color::Magenta | Color::Red
+            ) && cell.bg == Color::Reset));
+            for accent in [Color::Blue, Color::Magenta] {
+                assert!(
+                    cells
+                        .iter()
+                        .any(|cell| cell.fg == accent && !cell.symbol().trim().is_empty()),
+                    "{name} {view:?} must retain a theme-provided {accent:?} highlight"
+                );
+            }
             assert!(
                 cells
                     .iter()
@@ -117,4 +132,19 @@ fn terminal_following_themes_leave_colors_to_terminal_in_every_view() {
             );
         }
     }
+}
+
+#[test]
+fn terminal_theme_has_no_fixed_rgb_colors_without_custom_overrides() {
+    let palette = Palette::from_theme(&ThemeConfig::default());
+    let backend =
+        render_embedded_to_test_backend(&app(NavigationViewMode::Keys), palette, 120, 36).unwrap();
+    assert!(backend
+        .buffer()
+        .content
+        .iter()
+        .all(|cell| !matches!(cell.fg, Color::Rgb(..)) && cell.bg == Color::Reset));
+    let divider = &backend.buffer()[(0, 1)];
+    assert_eq!(divider.fg, Color::Reset);
+    assert!(divider.modifier.contains(Modifier::DIM));
 }
