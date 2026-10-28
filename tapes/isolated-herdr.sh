@@ -27,6 +27,7 @@ export HERDR_CONFIG_PATH="$XDG_CONFIG_HOME/herdr/config.toml"
 unset HERDR_SOCKET_PATH HERDR_CLIENT_SOCKET_PATH HERDR_SESSION HERDR_SESSION_NAME
 # Agent harnesses may export NO_COLOR; these recordings explicitly test colors.
 unset NO_COLOR
+export HERDR_SESSION="pwvhs"
 # Keep user startup hooks out of the isolated test terminals.
 cat > "$root/bash" <<'BASH'
 #!/bin/sh
